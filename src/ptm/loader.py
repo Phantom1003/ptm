@@ -1,14 +1,36 @@
+"""
+Module for loading and processing PTM files with environment variable support.
+"""
+
 import os
 import re
 from importlib.abc import SourceLoader
 from itertools import product
+from typing import Callable, Pattern, Dict, Any, Optional
 
 from .logger import plog
 
-# lex rules
-def re_group(*sub): return '(' + '|'.join(sub) + ')'
 
-def _string_prefixes():
+def re_group(*sub: str) -> str:
+    """
+    Create a regex group from multiple subpatterns.
+    
+    Args:
+        *sub: Variable number of subpatterns to combine
+        
+    Returns:
+        str: A regex group containing all subpatterns
+    """
+    return '(' + '|'.join(sub) + ')'
+
+
+def _string_prefixes() -> set[str]:
+    """
+    Generate all valid string prefixes for Python strings.
+    
+    Returns:
+        set[str]: Set of all valid string prefixes
+    """
     valid_prefixes = ['b', 'r', 'u', 'f', 'br', 'fr']
     result = {''}
     for prefix in valid_prefixes:
@@ -16,34 +38,53 @@ def _string_prefixes():
         result.update(''.join(p) for p in product(*[[c, c.upper()] for c in prefix[::-1]]))
     return result
 
+
+# Regular expression patterns for lexing
 lr_space = r'[ \f\t]*'
 lr_env_var = r'\${' + lr_space + r'(\w+)' + lr_space + r'}'
 lr_str_start = re_group(*_string_prefixes()) + r"('''|\"\"\"|'|\")"
 lr_fstr_var = r'{' + lr_space + r'\$({+)' + lr_space + r'(\w+)' + lr_space + r'(}+)' + lr_space + r'}'
 
-env_var_pattern = re.compile(lr_env_var)
-str_start_pattern = re.compile(lr_str_start)
-fstr_var_pattern = re.compile(lr_fstr_var)
+# Compiled regex patterns
+env_var_pattern: Pattern = re.compile(lr_env_var)
+str_start_pattern: Pattern = re.compile(lr_str_start)
+fstr_var_pattern: Pattern = re.compile(lr_fstr_var)
+
 
 def replace_env_var(code: str) -> str:
-    return env_var_pattern.sub(lambda m: f"os.environ['{m.group(1).strip()}']", code)
-
-def PTMLexer(readline) -> str:
     """
-    This lexer will replace $ syntactic sugar
+    Replace environment variable references in code with os.environ lookups.
+    
+    Args:
+        code: The code string to process
+        
+    Returns:
+        str: The processed code with environment variables replaced
+    """
+    return env_var_pattern.sub(lambda m: f"ptm.environ['{m.group(1).strip()}']", code)
+
+
+def PTMLexer(readline: Callable[[], str]) -> str:
+    """
+    Lexer for processing PTM files with environment variable support.
+    
+    This lexer handles string literals and f-strings, replacing environment
+    variable references with appropriate os.environ lookups.
+    
     Args:
         readline: A callable that returns the next line of the file
-
+        
     Returns:
-        str: The processed code
+        str: The processed code with environment variables replaced
     """
     result_lines = []
     lnum = 0
 
-    # Compile regex patterns
+    # State variables for string processing
     in_const_string = False
     in_fstring = False
     string_type = ''
+    
     while True:
         try:
             line = readline()
@@ -57,7 +98,6 @@ def PTMLexer(readline) -> str:
         pos, max = 0, len(line)
 
         while pos < max:
-
             plog.debug(pos, max, line[pos:])
 
             if in_const_string or in_fstring:
@@ -78,7 +118,16 @@ def PTMLexer(readline) -> str:
                 if in_fstring:
                     match_fstr_var = fstr_var_pattern.search(line[pos:])
 
-                    def paired_braces(match) -> bool:
+                    def paired_braces(match: re.Match) -> bool:
+                        """
+                        Check if the number of opening and closing braces match.
+                        
+                        Args:
+                            match: The regex match object
+                            
+                        Returns:
+                            bool: True if braces are properly paired
+                        """
                         left_braces = len(match.group(1))
                         right_braces = len(match.group(3))
                         return left_braces == right_braces and left_braces % 2 == 1
@@ -111,13 +160,13 @@ def PTMLexer(readline) -> str:
             match_string_start = str_start_pattern.search(line[pos:])
 
             if match_string_start:
-                # replace enviroment variables before the string
+                # Process code before string
                 before_string = line[pos:pos+match_string_start.end()]
                 plog.debug(f"process code before string, from {pos} to {pos+match_string_start.end()}:", before_string)
                 result_lines.append(replace_env_var(before_string))
                 pos += len(before_string)
 
-                # get string type
+                # Determine string type
                 prefix_type = match_string_start.group(1)
                 in_fstring = True if 'f' in prefix_type or 'F' in prefix_type else False
                 in_const_string = not in_fstring
@@ -132,24 +181,49 @@ def PTMLexer(readline) -> str:
                 break
 
     plog.debug("PTMLexer done:", result_lines)
-
     return ''.join(map(str, result_lines))
 
 
-
-
 class PTMLoader(SourceLoader):
+    """
+    Custom loader for PTM files that processes environment variables.
+    """
+    
     def __init__(self, fullname: str, path: str):
+        """
+        Initialize the PTM loader.
+        
+        Args:
+            fullname: The full name of the module
+            path: The path to the module file
+        """
         self.fullname = fullname
         self.path = path
 
     def get_filename(self, fullname: str) -> str:
+        """
+        Get the filename for the module.
+        
+        Args:
+            fullname: The full name of the module
+            
+        Returns:
+            str: The path to the module file
+        """
         return self.path
 
     def get_data(self, path: str) -> bytes:
+        """
+        Get the processed data from the PTM file.
+        
+        Args:
+            path: The path to the module file
+            
+        Returns:
+            bytes: The processed module data
+        """
         with open(path, "r", encoding="utf-8") as f:
             content = PTMLexer(f.readline)
 
         plog.debug(content)
-
         return content.encode("utf-8")

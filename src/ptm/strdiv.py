@@ -1,5 +1,10 @@
+"""
+Module for enabling string division operator in Python.
+"""
+
 import ctypes
 from functools import wraps
+from typing import Any, Callable, Dict, Type
 
 # from forbidden fruit
 

@@ -6,7 +6,8 @@ import os
 import re
 from importlib.abc import SourceLoader
 from itertools import product
-from typing import Callable, Pattern, Dict, Any, Optional
+from types import ModuleType
+from typing import Callable, Pattern
 
 from .logger import plog
 
@@ -199,6 +200,32 @@ class PTMLoader(SourceLoader):
         """
         self.fullname = fullname
         self.path = path
+        self.cache = None
+        self.type = "ptm" if path.endswith(".ptm") else "py"
+
+        # generate de-sugared cache file
+        if self.type == "ptm":
+            self.cache = os.path.join(os.path.dirname(self.path), f".{os.path.basename(self.path)}.py")
+            if not self._is_cache_valid():
+                with open(self.path, "r", encoding="utf-8") as f:
+                        content = PTMLexer(f.readline)
+                with open(self.cache, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+    def _is_cache_valid(self) -> bool:
+        """
+        Check if the cached file is still valid.
+            
+        Returns:
+            bool: True if cache is valid
+        """
+        if not os.path.exists(self.cache):
+            return False
+        
+        ptm_mtime = os.path.getmtime(self.path)
+        cache_mtime = os.path.getmtime(self.cache)
+        
+        return cache_mtime >= ptm_mtime
 
     def get_filename(self, fullname: str) -> str:
         """
@@ -210,7 +237,10 @@ class PTMLoader(SourceLoader):
         Returns:
             str: The path to the module file
         """
-        return self.path
+        if self.type == "ptm":
+            return self.cache
+        else:
+            return self.path
 
     def get_data(self, path: str) -> bytes:
         """
@@ -218,12 +248,22 @@ class PTMLoader(SourceLoader):
         
         Args:
             path: The path to the module file
-            
+
         Returns:
             bytes: The processed module data
         """
         with open(path, "r", encoding="utf-8") as f:
-            content = PTMLexer(f.readline)
+            content = f.read()
 
-        plog.debug(content)
         return content.encode("utf-8")
+
+    def exec_module(self, module: ModuleType):
+        """
+        Execute the module.
+        """
+        try:
+            exec(compile(self.get_data(self.get_filename("")), "<PTM>", "exec"), module.__dict__)
+        except Exception as e:
+            if self.type == "ptm":
+                print(f"Failed to execute the translated PTM file: {self.cache}, please check the original PTM file: {self.path}")
+            raise e

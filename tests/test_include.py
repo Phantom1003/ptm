@@ -27,7 +27,7 @@ home = ${HOME}
     tmp_file.write_text(tmp_content)
     return tmp_file
 
-def test_include(simple_ptm_file):
+def test_include_simple(simple_ptm_file):
     """Test basic functionality of include function"""
     module = include(str(simple_ptm_file))
 
@@ -40,11 +40,6 @@ def test_include_nonexistent_file():
     """Test importing a non-existent file"""
     with pytest.raises(FileNotFoundError):
         include("/nonexistent/file.ptm")
-
-def test_include_non_ptm_file():
-    """Test importing a non-PTM file"""
-    with pytest.raises(ValueError, match="Can only import .ptm files"):
-        include("/nonexistent/file.py")
 
 def test_include_relative(simple_ptm_file):
     """Test using relative path"""

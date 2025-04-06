@@ -5,8 +5,8 @@ Module for importing and processing PTM files with environment variable support.
 import os
 import sys
 import inspect
-from importlib.util import spec_from_file_location
-from typing import Tuple, Optional
+from importlib.util import spec_from_file_location, module_from_spec
+from typing import Optional
 
 from .logger import plog
 from .loader import PTMLoader
@@ -55,11 +55,13 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     Returns:
         str: The generated unique module name
     """
-    if not file_path.endswith(".ptm"):
-        raise ValueError("Can only import .ptm files")
 
-    # Resolve the path relative to the caller's directory
-    file_real_path = _abs_include_path(file_path)
+    last_dir = os.getcwd()
+
+    if os.path.isabs(file_path):
+        os.chdir(os.path.dirname(file_path))
+
+    file_real_path = os.path.abspath(file_path)
 
     if not os.path.exists(file_real_path):
         raise FileNotFoundError(f"File does not exist: {file_real_path}")
@@ -74,28 +76,22 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     if spec is None or spec.loader is None:
         raise ImportError(f"Could not create module spec: {file_real_path}")
 
-    # Create new module
-    module = sys.modules.get(module_name)
-    if module is None:
-        module = type(sys)(module_name)
-        sys.modules[module_name] = module
-
-    # Set basic module attributes
+    module = module_from_spec(spec)
     module.__file__ = file_real_path
     module.__name__ = module_name
     module.__package__ = None
     module.__spec__ = spec
     module.__loader__ = spec.loader
 
-    # Add utility functions to the module
     module.include = include
     module.ptm = sys.modules["ptm"]
 
     if param is None:
         param = _get_parent_parameter()
     module.param = param
-    
-    # Execute module
+
     spec.loader.exec_module(module)
+
+    os.chdir(last_dir)
 
     return module

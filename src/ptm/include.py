@@ -56,18 +56,18 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
         str: The generated unique module name
     """
 
-    last_dir = os.getcwd()
-
-    if os.path.isabs(file_path):
-        os.chdir(os.path.dirname(file_path))
-
     file_real_path = os.path.abspath(file_path)
+
+    last_dir = os.getcwd()
+    work_dir = os.path.dirname(file_real_path)
+    plog.info(f"Entering directory '{work_dir}'")
+    os.chdir(work_dir)
 
     if not os.path.exists(file_real_path):
         raise FileNotFoundError(f"File does not exist: {file_real_path}")
     
     module_name = file_real_path
-    plog.info(f"Loading PTM file {file_real_path}")
+    plog.info(f"Importing targets from '{file_real_path}'")
 
     spec = spec_from_file_location(
         module_name, file_real_path, loader=PTMLoader(module_name, file_real_path)
@@ -92,6 +92,7 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
 
     spec.loader.exec_module(module)
 
+    plog.info(f"Leaving directory '{work_dir}'")
     os.chdir(last_dir)
 
     return module

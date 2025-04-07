@@ -73,3 +73,31 @@ def test_include_nested_relative_path(simple_ptm_file):
     assert sub_module.path == os.environ['PATH']
     assert sub_module.home == os.environ['HOME']
     assert sub_module.__file__ == str(simple_ptm_file)
+
+def test_include_subdirectory_relative_path(tmp_path):
+    """Test using subdirectory relative path"""
+    first_level_ptm = tmp_path / "build.ptm"
+    second_level_ptm = tmp_path / "sub1" / "build.ptm"
+    third_level_ptm = tmp_path / "sub1" / "sub2" / "build.ptm"
+    third_level_ptm.parent.mkdir(parents=True)
+
+    first_level_ptm.write_text("second = include('sub1/build.ptm')")
+    second_level_ptm.write_text("third = include('sub2/build.ptm')")
+    third_level_ptm.write_text("USER = ${USER}")
+
+    first = include(str(first_level_ptm))
+    assert first.second.third.__file__ == str(third_level_ptm)
+    assert first.second.third.USER == os.environ['USER']
+
+def test_include_subdirectory_relative_path2(tmp_path):
+    """Test using subdirectory relative path"""
+    second_level_ptm = tmp_path / "sub1" / "build.ptm"
+    third_level_ptm = tmp_path / "sub1" / "sub2" / "build.ptm"
+    third_level_ptm.parent.mkdir(parents=True)
+
+    second_level_ptm.write_text("third = include('sub2/build.ptm')")
+    third_level_ptm.write_text("USER = ${USER}")
+
+    second = include(str(second_level_ptm))
+    assert second.third.__file__ == str(third_level_ptm)
+    assert second.third.USER == os.environ['USER']

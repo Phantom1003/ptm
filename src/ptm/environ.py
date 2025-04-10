@@ -19,6 +19,15 @@ class _PTMEnvVar:
         """Delete environment variable."""
         del os.environ[key]
     
+    def __getattr__(self, name):
+        return self[name]
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __delattr__(self, name):
+        del self[name]
+
     def get(self, key: str, default: str = None) -> str:
         """Get environment variable with default value."""
         return os.environ.get(key, default)

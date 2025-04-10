@@ -73,7 +73,7 @@ def replace_env_var(code: str) -> str:
     Returns:
         str: The processed code with environment variables replaced
     """
-    return env_var_pattern.sub(lambda m: f"ptm.environ['{m.group(1).strip()}']", code)
+    return env_var_pattern.sub(lambda m: f"ptm.environ.{m.group(1).strip()}", code)
 
 
 class LexerState:

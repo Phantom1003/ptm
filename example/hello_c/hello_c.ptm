@@ -1,0 +1,33 @@
+import os
+
+TOP = os.path.dirname(os.path.abspath(__file__))
+BUILD = TOP / 'build'
+
+@target(BUILD / 'hello.h')
+def target_h(target, depends):
+    with open(target, 'w') as f:
+        f.write(f"""
+#define TARGET "{${TARGET}}"
+""")
+
+@target(BUILD / 'hello.c', [BUILD / 'target.h'])
+def helloworld_c(target, depends):
+    with open(target, 'w') as f:
+        f.write("""
+#include <stdio.h>
+#include "hello.h"
+
+int main() {
+    printf("Hello, %s!\\n", TARGET);
+    return 0;
+}
+""")
+    print(f'{target} created')
+
+@target(BUILD / 'hello', [BUILD / 'hello.c'])
+def hello_elf(target, depends):
+    $'gcc {depends[0]} -DTARGET=\\"{${TARGET}}\\" -o {target}'
+
+@task([BUILD / 'hello'])
+def hello_run(target, depends):
+    $"{depends[0]}"

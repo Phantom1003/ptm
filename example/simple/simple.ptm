@@ -1,0 +1,3 @@
+@task()
+def hello(target, depends):
+    $"echo 'Hello, {${USER}}!'"

@@ -8,6 +8,9 @@ import os
 
 from .logger import plog
 
+def _get_target_name(target: Union[str, Callable]) -> str:
+    return target.__name__ if isinstance(target, Callable) else os.path.abspath(target)
+
 class BuildTarget:
     def __init__(self, recipe: Callable, target: str, depends: List[str]):
         self.target = target
@@ -21,7 +24,7 @@ class BuildTarget:
         else:
             return 0
 
-    def _invalid(self) -> bool:
+    def _check_valid(self) -> bool:
         if self.timestamp == 0:
             return True
 
@@ -32,7 +35,7 @@ class BuildTarget:
         return False   
 
     def build(self, **kwargs) -> Any:
-        if not self._invalid():
+        if not self._check_valid():
             plog.info(f"Target '{self.target}' is up to date")
 
         else:
@@ -42,6 +45,7 @@ class BuildTarget:
 
             self.recipe(**kwargs)
             self.timestamp = self._get_timestamp(self.target)
+
 
 class BuildSystem:
     _instance = None
@@ -61,9 +65,8 @@ class BuildSystem:
         return cls._instance
 
     def _register_target(self, func: Callable, target: Union[str, Callable], depends: List[Union[str, Callable]]) -> Callable:
-        gen_real_target = lambda target_name: target_name.__name__ if isinstance(target_name, Callable) else os.path.abspath(target_name)
-        target_real_name = gen_real_target(target)
-        depends_real_name = [gen_real_target(depend) for depend in depends]
+        target_real_name = _get_target_name(target)
+        depends_real_name = [_get_target_name(depend) for depend in depends]
 
         if not func.__code__.co_varnames[:func.__code__.co_argcount] == ('target', 'depends'):
             raise ValueError(f"Task must take exactly two named arguments: target and depends")
@@ -91,9 +94,6 @@ class BuildSystem:
             return self._register_target(func, func, depends)
         return decorator
 
-    def get_target(self, name: str) -> Optional[BuildTarget]:
-        return self.target_lut.get(name)
-
     def _visit(self, target: str) -> None:
         if target not in self.target_lut:
             return
@@ -115,22 +115,22 @@ class BuildSystem:
         return self._build_order
 
     def build(self, target: Union[str, Callable]) -> Any:
-        if isinstance(target, Callable):
-            target = target.__name__
-        else:
-            target = os.path.abspath(target)
+        target = _get_target_name(target)
 
         if target not in self.target_lut:
             raise ValueError(f"Target '{target}' not found")
             
         build_order = self.get_build_order(target)
-        results = {}
-        
+
         for t in build_order:
             if t in self.target_lut:
-                results[t] = self.target_lut[t].build()
-                
-        return results[target]
+                self.target_lut[t].build()
+
+    def invalid(self, target: str):
+        target_real_name = _get_target_name(target)
+        if target_real_name not in self.target_lut:
+            raise ValueError(f"Target '{target_real_name}' not found")
+        self.target_lut[target_real_name].timestamp = 0
 
     def list_targets(self) -> None:
         """List all available targets and their descriptions."""

@@ -83,3 +83,6 @@ wheels/
 # Logs
 *.log
 logs/
+
+# ptm cache
+.*.py

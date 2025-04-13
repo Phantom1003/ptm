@@ -65,6 +65,9 @@ class BuildSystem:
         target_real_name = gen_real_target(target)
         depends_real_name = [gen_real_target(depend) for depend in depends]
 
+        if not func.__code__.co_varnames[:func.__code__.co_argcount] == ('target', 'depends'):
+            raise ValueError(f"Task must take exactly two named arguments: target and depends")
+
         partial_func = functools.partial(func, target_real_name, depends_real_name)
         partial_func.__name__ = func.__name__
         build_target = BuildTarget(partial_func, target_real_name, depends_real_name)

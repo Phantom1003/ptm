@@ -122,7 +122,7 @@ class PatternCollection(Collection):
             pattern: A function that takes current and parent collections and returns
                     a function that takes a key and returns a value
         """
-        if not pattern.__code__.co_varnames == ('current', 'parent', 'key'):
+        if not pattern.__code__.co_varnames[:pattern.__code__.co_argcount] == ('current', 'parent', 'key'):
             raise ValueError("Programmable parameter must take exactly three named arguments: current, parent, and key")
         self.pattern = pattern
     

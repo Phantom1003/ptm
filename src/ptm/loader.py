@@ -26,10 +26,10 @@ def re_group(*sub: str) -> str:
 
 
 shell_prefix_map = {
-    "$": "ptm.exec",
-    "$>": "ptm.exec_stdout",
-    "$>>": "ptm.exec_stderr",
-    "$&": "ptm.exec_stdout_stderr",
+    "$": "ptm.exec_cmd",
+    "$>": "ptm.exec_cmd_stdout",
+    "$>>": "ptm.exec_cmd_stderr",
+    "$&": "ptm.exec_cmd_stdout_stderr",
 }
 
 def _string_prefixes() -> set[str]:
@@ -128,12 +128,12 @@ class LexerMachine:
 
             if is_shell_cmd:
                 self.result_lines.append(shell_prefix_map[prefix_type] + "(")
+                self.result_lines.append("f" + quote_type)
                 self.state_stack.append(LexerState("shell", quote_type))
             else:
                 self.result_lines.append(prefix_type)
+                self.result_lines.append(quote_type)
                 self.state_stack.append(LexerState("fstring" if is_fstring else "string", quote_type))
-
-            self.result_lines.append(quote_type)
 
             return match_str_start.end()
         else:

@@ -13,8 +13,8 @@ def test_basic_file_target(tmp_path):
     dep_file.write_text("input data")
     
     @target(str(target_file), [str(dep_file)])
-    def build_output(target, deps):
-        with open(deps[0], 'r') as f:
+    def build_output(target, depends):
+        with open(depends[0], 'r') as f:
             data = f.read()
         with open(target, 'w') as f:
             f.write(data.upper())
@@ -42,8 +42,8 @@ def test_multiple_targets(tmp_path):
     dep_file.write_text("input data")
     
     @targets([str(target1), str(target2)], [str(dep_file)])
-    def build_outputs(target, deps):
-        with open(deps[0], 'r') as f:
+    def build_outputs(target, depends):
+        with open(depends[0], 'r') as f:
             data = f.read()
         with open(target, 'w') as f:
             f.write(data.upper())
@@ -58,11 +58,11 @@ def test_task_target():
     results = []
     
     @task()
-    def task1(target, deps):
+    def task1(target, depends):
         results.append(1)
     
     @task([task1])
-    def task2(target, deps):
+    def task2(target, depends):
         results.append(2)
     
     builder.build(task2)
@@ -72,11 +72,11 @@ def test_circular_dependency():
     """Test circular dependency detection"""
     with pytest.raises(ValueError, match="Circular dependency"):
         @target('task1', ['task2'])
-        def task1(target, deps):
+        def task1(target, depends):
             pass
             
         @target('task2', ['task1'])
-        def task2(target, deps):
+        def task2(target, depends):
             pass
         
         builder.list_targets()
@@ -89,11 +89,11 @@ def test_mixed_dependencies(tmp_path):
     results = []
     
     @task()
-    def func1(target, deps):
+    def func1(target, depends):
         results.append(1)
     
     @target(str(target_file), [func1])
-    def build_output(target, deps):
+    def build_output(target, depends):
         results.append(2)
         with open(target, 'w') as f:
             f.write("output")

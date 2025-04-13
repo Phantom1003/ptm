@@ -11,6 +11,7 @@ from typing import Optional
 from .logger import plog
 from .loader import PTMLoader
 from .param import Parameter
+from .builder import task, target, targets
 
 def _get_parent_parameter():
     caller_frame = inspect.stack()
@@ -83,8 +84,11 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     module.__spec__ = spec
     module.__loader__ = spec.loader
 
-    module.include = include
     module.ptm = sys.modules["ptm"]
+    module.include = include
+    module.task = task
+    module.target = target
+    module.targets = targets
 
     if param is None:
         param = _get_parent_parameter()

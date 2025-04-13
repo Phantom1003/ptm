@@ -8,7 +8,7 @@ from typing import Optional, Tuple, Union
 from .logger import plog
 
 
-def exec(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
+def exec_cmd(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
     """
     Execute a shell command and return its exit status.
     
@@ -16,24 +16,24 @@ def exec(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
         cmd: The command to execute
         shell: Whether to use shell execution
         cwd: Working directory for the command
-        
+
     Returns:
         int: The exit status of the command
     """
-    plog.info(cmd)
+    plog.info("Executing command:", cmd)
     process = subprocess.Popen(
         cmd,
         shell=shell,
         cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=None,
+        stderr=None,
         text=True
     )
     process.communicate()
     return process.returncode
 
 
-def exec_stdout(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
+def exec_cmd_stdout(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
     """
     Execute a shell command and return its standard output.
     
@@ -58,7 +58,7 @@ def exec_stdout(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
     return stdout.strip()
 
 
-def exec_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
+def exec_cmd_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
     """
     Execute a shell command and return its standard error.
     
@@ -70,7 +70,7 @@ def exec_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
     Returns:
         str: The standard error of the command
     """
-    plog.info(cmd)
+    plog.info("Executing command:", cmd)
     process = subprocess.Popen(
         cmd,
         shell=shell,
@@ -83,7 +83,7 @@ def exec_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
     return stderr.strip()
 
 
-def exec_stdout_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
+def exec_cmd_stdout_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> str:
     """
     Execute a shell command and return combined standard output and error.
     
@@ -95,7 +95,7 @@ def exec_stdout_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) 
     Returns:
         str: The combined standard output and error of the command
     """
-    plog.info(cmd)
+    plog.info("Executing command:", cmd)
     process = subprocess.Popen(
         cmd,
         shell=shell,
@@ -105,4 +105,4 @@ def exec_stdout_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) 
         text=True
     )
     stdout, stderr = process.communicate()
-    return (stdout + stderr).strip() 
+    return (stdout + stderr).strip()

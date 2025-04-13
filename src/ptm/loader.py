@@ -7,8 +7,7 @@ import re
 from importlib.abc import SourceLoader
 from itertools import product
 from types import ModuleType
-from typing import Callable, Pattern, List, Tuple, Optional
-from enum import Enum
+from typing import Callable, Pattern, List, Optional
 
 from .logger import plog
 
@@ -54,13 +53,10 @@ lr_env_var = r'\${' + lr_space + r'(\w+)' + lr_space + r'}'
 lr_str_start = re_group(*_string_prefixes()) + r"('''|\"\"\"|'|\")"
 lr_fvar_start = r'[^\${]*(({{)*{(?!{))'
 
-lr_fstr_var = r'{' + lr_space + r'\$({+)' + lr_space + r'(\w+)' + lr_space + r'(}+)' + lr_space + r'}'
-
 # Compiled regex patterns
 env_var_pattern: Pattern = re.compile(lr_env_var)
 str_start_pattern: Pattern = re.compile(lr_str_start)
 fvar_start_pattern: Pattern = re.compile(lr_fvar_start)
-fstr_var_pattern: Pattern = re.compile(lr_fstr_var)
 
 
 def replace_env_var(code: str) -> str:

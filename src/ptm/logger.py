@@ -12,7 +12,7 @@ class PTMLogger:
     Logger class for PTM with configurable log levels and handlers.
     """
     
-    def __init__(self, level: str = "INFO", log_handler: Optional[Callable[[str, Any], None]] = None):
+    def __init__(self, verbose_level: str = "INFO", log_handler: Optional[Callable[[str, Any], None]] = None):
         """
         Initialize the logger.
         
@@ -21,7 +21,7 @@ class PTMLogger:
             log_handler: Optional custom log handler function
         """
         self.levels = ["QUIET", "DEBUG", "INFO", "WARNING", "ERROR"]
-        self.level = level if level in self.levels else "INFO"
+        self.verbose_level = verbose_level if verbose_level in self.levels else "INFO"
         self.log_handler = log_handler or self.default_handler
 
     def verbose(self, level: str) -> bool:
@@ -34,67 +34,44 @@ class PTMLogger:
         Returns:
             bool: True if the level should be displayed
         """
-        return self.levels.index(level) >= self.levels.index(self.level)
+        return self.levels.index(level) >= self.levels.index(self.verbose_level)
 
-    def default_handler(self, level: str, *message: Any) -> None:
-        """
-        Default log handler that prints to stdout.
-        
-        Args:
-            level: The log level
-            *message: Variable number of message parts
-        """
-        if not self.verbose(level):
-            return
+    def format(self, *message: Any) -> str:
+        return ' '.join(map(str, message))
+    
+    def prefix(self, level: str) -> str:
+        return f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{level}]"
 
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{timestamp}] [{level}] {' '.join(map(str, message))}")
-
-    def log(self, level: str, *message: Any) -> None:
-        """
-        Log a message at the specified level.
-        
-        Args:
-            level: The log level
-            *message: Variable number of message parts
-        """
-        self.log_handler(level, *message)
+    def default_handler(self, content: str) -> None:
+        print(content)
 
     def info(self, *message: Any) -> None:
-        """
-        Log an info message.
-        
-        Args:
-            *message: Variable number of message parts
-        """
-        self.log("INFO", *message)
+        if not self.verbose("INFO"):
+            return
+
+        content = self.format(*message)
+        self.log_handler(content)
         
     def debug(self, *message: Any) -> None:
-        """
-        Log a debug message.
-        
-        Args:
-            *message: Variable number of message parts
-        """
-        self.log("DEBUG", *message)
+        if not self.verbose("DEBUG"):
+            return
+
+        content = self.format(*message)
+        self.log_handler(content)
         
     def warning(self, *message: Any) -> None:
-        """
-        Log a warning message.
-        
-        Args:
-            *message: Variable number of message parts
-        """
-        self.log("WARNING", *message)
+        if not self.verbose("WARNING"):
+            return
+
+        content = self.format(*message)
+        self.log_handler(content)
         
     def error(self, *message: Any) -> None:
-        """
-        Log an error message.
-        
-        Args:
-            *message: Variable number of message parts
-        """
-        self.log("ERROR", *message)
+        if not self.verbose("ERROR"):
+            return
+
+        content = self.format(*message)
+        self.log_handler(content)
 
 
 # Create a global logger instance

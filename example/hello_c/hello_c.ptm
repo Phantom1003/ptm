@@ -10,7 +10,7 @@ def target_h(target, depends):
 #define TARGET "{${TARGET}}"
 """)
 
-@target(BUILD / 'hello.c', [BUILD / 'target.h'])
+@target(BUILD / 'hello.c', [BUILD / 'hello.h'])
 def helloworld_c(target, depends):
     with open(target, 'w') as f:
         f.write("""

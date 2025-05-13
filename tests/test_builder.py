@@ -70,17 +70,26 @@ def test_task_target():
 
 def test_circular_dependency():
     """Test circular dependency detection"""
-    with pytest.raises(ValueError, match="Circular dependency"):
-        @target('task1', ['task2'])
+    @target('task1', ['task2'])
+    def task1(target, depends):
+        pass
+        
+    @target('task2', ['task1'])
+    def task2(target, depends):
+        pass
+        
+    builder.list_targets()
+    builder.build('task1')
+
+def test_not_found_dependency():
+    """Test not found dependency detection"""
+    with pytest.raises(ValueError, match="not found"):
+        @task([print])
         def task1(target, depends):
             pass
-            
-        @target('task2', ['task1'])
-        def task2(target, depends):
-            pass
-        
+
         builder.list_targets()
-        builder.build('task1')
+        builder.build(task1)
 
 
 def test_mixed_dependencies(tmp_path):

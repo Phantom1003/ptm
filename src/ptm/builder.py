@@ -104,24 +104,27 @@ class BuildSystem:
             return self._register_target(func, func, _get_depends(func, depends))
         return decorator
 
-    def _visit(self, target: str) -> None:
+    def _visit(self, target: str, history: List[str]) -> None:
         if target not in self.target_lut:
+            if not os.path.exists(target):
+                raise ValueError(f"Target '{target}' not found")
             return
-
-        if self._visited.get(target, False):
-            raise ValueError(f"Circular dependency detected involving target: {target}")
-        self._visited[target] = True
-
+                
         for dep in self.target_lut[target].depends:
-            self._visit(dep)
+            if dep in history:
+                plog.info(f"Circular dependency {target} <- {dep} dropped.")
+                continue
+            self._visit(dep, history + [target])
 
-        self._build_order.append(target)
+        if not self._visited.get(target, False):     
+            self._visited[target] = True
+            self._build_order.append(target)
 
     def get_build_order(self, target: str) -> List[str]:
         self._visited.clear()
         self._build_order.clear()
         
-        self._visit(target)
+        self._visit(target, [])
         return self._build_order
 
     def build(self, target: Union[str, Callable]) -> Any:

@@ -8,6 +8,16 @@ from typing import Optional, Tuple, Union
 from .logger import plog
 
 
+def _check_return_code(returncode: int) -> None:
+    """
+    Check the return code of a subprocess and raise an exception if it's non-zero.
+    
+    Args:
+        returncode: The return code of the subprocess
+    """
+    if returncode != 0:
+        raise RuntimeError(f"Command failed with return code {returncode}")
+
 def exec_cmd(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
     """
     Execute a shell command and return its exit status.
@@ -30,6 +40,8 @@ def exec_cmd(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
         text=True
     )
     process.communicate()
+    _check_return_code(process.returncode)
+
     return process.returncode
 
 
@@ -55,6 +67,8 @@ def exec_cmd_stdout(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> 
         text=True
     )
     stdout, _ = process.communicate()
+    _check_return_code(process.returncode)
+
     return stdout.strip()
 
 
@@ -80,6 +94,8 @@ def exec_cmd_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> 
         text=True
     )
     _, stderr = process.communicate()
+    _check_return_code(process.returncode)
+
     return stderr.strip()
 
 
@@ -105,4 +121,6 @@ def exec_cmd_stdout_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = No
         text=True
     )
     stdout, stderr = process.communicate()
+    _check_return_code(process.returncode)
+
     return (stdout + stderr).strip()

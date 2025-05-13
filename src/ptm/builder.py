@@ -9,30 +9,40 @@ import os
 from .logger import plog
 
 def _get_target_name(target: Union[str, Callable]) -> str:
-    return target.__name__ if isinstance(target, Callable) else os.path.abspath(target)
+    return target.__name__ if callable(target) else os.path.abspath(target)
+
+def _get_timestamp(path: str) -> int:
+    if os.path.exists(path):
+        return os.stat(path).st_mtime_ns
+    else:
+        return 0
+
+def _get_depends(target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable]) -> List[Union[str, Callable]]:
+    if callable(target):
+        target = target.__name__
+
+    if callable(depends):
+        return depends(target)
+    else:
+        return depends
+
 
 class BuildTarget:
     def __init__(self, recipe: Callable, target: str, depends: List[str]):
         self.target = target
         self.depends = depends
         self.recipe = recipe
-        self.timestamp = self._get_timestamp(self.target)
-
-    def _get_timestamp(self, path: str) -> int:
-        if os.path.exists(path):
-            return os.stat(path).st_mtime_ns
-        else:
-            return 0
+        self.timestamp = _get_timestamp(self.target)
 
     def _check_valid(self) -> bool:
         if self.timestamp == 0:
             return True
 
         for depend in self.depends:
-            if self._get_timestamp(depend) >= self.timestamp:
+            if _get_timestamp(depend) >= self.timestamp:
                 return True
 
-        return False   
+        return False
 
     def build(self, **kwargs) -> Any:
         if not self._check_valid():
@@ -44,7 +54,7 @@ class BuildTarget:
                 os.makedirs(os.path.dirname(self.target), exist_ok=True)
 
             self.recipe(**kwargs)
-            self.timestamp = self._get_timestamp(self.target)
+            self.timestamp = _get_timestamp(self.target)
 
 
 class BuildSystem:
@@ -77,21 +87,21 @@ class BuildSystem:
         self.target_lut[target_real_name] = build_target
         return func
 
-    def targets(self, targets: List[Union[str, Callable]], depends: List[Union[str, Callable]] = []):           
+    def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = []):
         def decorator(func):
             for target in targets:
-                self._register_target(func, target, depends)
+                self._register_target(func, target, _get_depends(target, depends))
             return func
         return decorator
 
-    def target(self, target: Union[str, Callable], depends: List[Union[str, Callable]] = []):           
+    def target(self, target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable] = []):
         def decorator(func):
-            return self._register_target(func, target, depends)
+            return self._register_target(func, target, _get_depends(target, depends))
         return decorator
 
-    def task(self, depends: List[Union[str, Callable]] = []):
+    def task(self, depends: Union[List[Union[str, Callable]], Callable] = []):
         def decorator(func):
-            return self._register_target(func, func, depends)
+            return self._register_target(func, func, _get_depends(func, depends))
         return decorator
 
     def _visit(self, target: str) -> None:

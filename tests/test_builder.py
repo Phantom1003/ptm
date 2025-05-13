@@ -101,3 +101,24 @@ def test_mixed_dependencies(tmp_path):
     builder.build(str(target_file))
     assert results == [1, 2]
     assert target_file.read_text() == "output"
+
+def test_dynamic_dependency(tmp_path):
+    """Test dynamic dependency resolution"""
+    input_file = tmp_path / "input.txt"
+    target_file = tmp_path / "output.txt"
+
+    @target(input_file)
+    def build_input(target, depends):
+        with open(target, 'w') as f:
+            f.write("phantom-make")
+
+    @target(str(target_file), lambda target: [input_file] if "output" in target else [])
+    def build_output(target, depends):
+        # read input and write to output
+        with open(depends[0], 'r') as f:
+            data = f.read()
+        with open(target, 'w') as f:
+            f.write(data.upper())
+    
+    builder.build(str(target_file))
+    assert target_file.read_text() == "PHANTOM-MAKE"

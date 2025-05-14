@@ -32,14 +32,14 @@ class BuildTarget:
         self.target = target
         self.depends = depends
         self.recipe = recipe
-        self.timestamp = _get_timestamp(self.target)
 
     def _check_valid(self) -> bool:
-        if self.timestamp == 0:
+        target_timestamp = _get_timestamp(self.target)
+        if target_timestamp == 0:
             return True
 
         for depend in self.depends:
-            if _get_timestamp(depend) >= self.timestamp:
+            if _get_timestamp(depend) >= target_timestamp:
                 return True
 
         return False
@@ -54,7 +54,6 @@ class BuildTarget:
                 os.makedirs(os.path.dirname(self.target), exist_ok=True)
 
             self.recipe(**kwargs)
-            self.timestamp = _get_timestamp(self.target)
 
 
 class BuildSystem:
@@ -144,6 +143,15 @@ class BuildSystem:
         if target_real_name not in self.target_lut:
             raise ValueError(f"Target '{target_real_name}' not found")
         self.target_lut[target_real_name].timestamp = 0
+    
+    def add_dependency(self, target: Union[str, Callable], depends: List[Union[str, Callable]]) -> None:
+        target_real_name = _get_target_name(target)
+        depends_real_name = [_get_target_name(depend) for depend in depends]
+
+        if target_real_name not in self.target_lut:
+            raise ValueError(f"Target '{target_real_name}' not found")
+
+        self.target_lut[target_real_name].depends.extend(depends_real_name)
 
     def list_targets(self) -> None:
         """List all available targets and their descriptions."""

@@ -137,12 +137,6 @@ class BuildSystem:
         for t in build_order:
             if t in self.target_lut:
                 self.target_lut[t].build()
-
-    def invalid(self, target: str):
-        target_real_name = _get_target_name(target)
-        if target_real_name not in self.target_lut:
-            raise ValueError(f"Target '{target_real_name}' not found")
-        self.target_lut[target_real_name].timestamp = 0
     
     def add_dependency(self, target: Union[str, Callable], depends: List[Union[str, Callable]]) -> None:
         target_real_name = _get_target_name(target)

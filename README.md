@@ -52,7 +52,7 @@ PTM provides powerful syntax sugar to make build scripts more concise and readab
    ${PATH}
    
    # In f-strings
-   path = f"Current path: ${PATH}"
+   path = f"Current path: {${PATH}}"
    ```
 
 3. **String Division for Paths**

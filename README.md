@@ -15,6 +15,15 @@ It's designed to help developers maintain complex multi-configuration build proc
 pip install phantom-make
 ```
 
+And you can also install PTM directly from the GitHub repository:
+
+```bash
+git clone https://github.com/Phantom1003/ptm.git
+cd ptm
+pip install -e .
+```
+
+
 ## Requirements
 
 - Python 3.10 or higher

@@ -1,5 +1,5 @@
 import os
-from ptm.loader import *
+from ptm.syntax.loader import *
 
 def iter_lines(code):
     return iter(code.splitlines(True)).__next__

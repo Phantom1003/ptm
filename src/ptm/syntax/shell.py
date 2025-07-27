@@ -5,7 +5,7 @@ Module for executing shell commands.
 import subprocess
 from typing import Optional, Tuple, Union
 
-from .logger import plog
+from ..system.logger import plog
 
 
 def _check_return_code(returncode: int) -> None:

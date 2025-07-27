@@ -1,30 +1,9 @@
-from typing import List, Dict, Callable, Any, Optional, Set, Union
-from functools import wraps
-from collections import defaultdict
-import functools
-from pathlib import Path
-import time
 import os
+import functools
+from typing import List, Dict, Callable, Any, Union
 
 from .logger import plog
-
-def _get_target_name(target: Union[str, Callable]) -> str:
-    return target.__name__ if callable(target) else os.path.abspath(target)
-
-def _get_timestamp(path: str) -> int:
-    if os.path.exists(path):
-        return os.stat(path).st_mtime_ns
-    else:
-        return 0
-
-def _get_depends(target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable]) -> List[Union[str, Callable]]:
-    if callable(target):
-        target = target.__name__
-
-    if callable(depends):
-        return depends(target)
-    else:
-        return depends
+from .utils import _get_timestamp, _get_target_name, _get_depends
 
 
 class BuildTarget:

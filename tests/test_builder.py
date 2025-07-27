@@ -2,7 +2,7 @@ import os
 import time
 from pathlib import Path
 import pytest
-from ptm.builder import builder, target, targets, task
+from ptm.system.builder import builder, target, targets, task
 
 def test_basic_file_target(tmp_path):
     """Test basic file target with dependencies"""

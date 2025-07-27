@@ -9,7 +9,7 @@ from itertools import product
 from types import ModuleType
 from typing import Callable, Pattern, List, Optional
 
-from .logger import plog
+from ..system.logger import plog
 
 
 def re_group(*sub: str) -> str:

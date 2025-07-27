@@ -12,11 +12,11 @@ if __name__ == '__main__':
 
     environ['TARGET'] = args.to
 
-    if os.path.exists(cfg.BUILD / 'hello.h'):
-        with open(cfg.BUILD / 'hello.h', 'r') as f:
+    if os.path.exists(cfg.hello_hdr):
+        with open(cfg.hello_hdr, 'r') as f:
             hello_target = f.read().split('"')[1]
 
             if hello_target != args.to:
-                builder.invalid(cfg.BUILD / 'hello.h')
+                os.remove(cfg.hello_hdr)
 
     builder.build(cfg.hello_run)

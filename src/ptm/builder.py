@@ -135,7 +135,10 @@ class DependencyTree:
             self._compute_depth_map(child)
 
     def get_build_order(self) -> List[BuildRecipe]:
-        return [node for depth in sorted(self.node_depth_map.keys()) for node in self.node_depth_map[depth]]
+        build_order: List[BuildRecipe] = []
+        for depth in sorted(self.node_depth_map.keys(), reverse=True):
+            build_order.extend(self.node_depth_map[depth])
+        return build_order
     
     def __repr__(self) -> str:
         lines = [f"BuildTree (max_depth={self.max_depth})"]
@@ -193,13 +196,6 @@ class BuildSystem:
         def decorator(func):
             return self._register_target(func, func, _get_depends(func, depends), external)
         return decorator
-
-    def get_build_tree(self, target: str) -> DependencyTree:
-        return DependencyTree(target, self.target_lut)
-
-    def get_build_order(self, target: str) -> List[BuildRecipe]:
-        tree = self.get_build_tree(target)
-        return tree.get_build_order()
 
     def build(self, target: Union[str, Callable], *, max_jobs: Optional[int] = None) -> Any:
         if max_jobs is not None and max_jobs < 1:

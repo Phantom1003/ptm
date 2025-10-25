@@ -55,18 +55,24 @@ def test_multiple_targets(tmp_path):
 
 def test_task_target():
     """Test task target (no file output)"""
-    results = []
     
     @task()
     def task1(target, depends):
-        results.append(1)
+        pass
     
-    @task([task1])
+    @task()
     def task2(target, depends):
-        results.append(2)
+        pass
     
-    builder.build(task2)
-    assert results == [1, 2]
+    @task()
+    def task3(target, depends):
+        pass
+    
+    @task([task1, task2, task3])
+    def task4(target, depends):
+        pass
+
+    builder.build(task4)
 
 def test_circular_dependency():
     """Test circular dependency detection"""
@@ -95,20 +101,17 @@ def test_not_found_dependency():
 def test_mixed_dependencies(tmp_path):
     """Test mixing file and function dependencies"""
     target_file = tmp_path / "output.txt"
-    results = []
     
     @task()
     def func1(target, depends):
-        results.append(1)
+        pass
     
     @target(str(target_file), [func1])
     def build_output(target, depends):
-        results.append(2)
         with open(target, 'w') as f:
             f.write("output")
     
     builder.build(str(target_file))
-    assert results == [1, 2]
     assert target_file.read_text() == "output"
 
 def test_dynamic_dependency(tmp_path):

@@ -54,7 +54,27 @@ class BuildScheduler:
         if not self.wip:
             return
 
-        pid, status = os.waitpid(-1, 0)
+        try:
+            pid, status = os.waitpid(-1, 0)
+        except ChildProcessError:
+            for recipe, (proc, alloc) in list(self.wip.items()):
+                if not proc.is_alive():
+                    exitcode = proc.exitcode if proc.exitcode is not None else -1
+                    self.wip.pop(recipe)
+                    self.cap += alloc
+                    
+                    if exitcode == 0:
+                        self.done.add(recipe)
+                        plog.debug(f"Completed {recipe.target}")
+
+                        for t in self.build_order:
+                            if recipe.target in t.depends:
+                                self.remaining_deps[t] -= 1
+                    else:
+                        plog.info(f"Target {recipe.target} failed with exit code {exitcode}")
+                        self.error = exitcode
+            return
+
         if os.WIFEXITED(status):
             exitcode = os.WEXITSTATUS(status)
         elif os.WIFSIGNALED(status):

@@ -8,7 +8,7 @@ from .recipe import BuildRecipe, DependencyTree
 from .scheduler import BuildScheduler
 
 def _get_target_name(target: Union[str, Callable]) -> str:
-    return target.__name__ if callable(target) else os.path.abspath(target)
+    return f"{target.__name__}_{hex(id(target))}" if callable(target) else os.path.abspath(target)
 
 def _get_depends(target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable]) -> List[Union[str, Callable]]:
     if callable(target):
@@ -69,7 +69,7 @@ class BuildSystem:
             return self._register_target(func, func, _get_depends(func, depends), external)
         return decorator
 
-    def build(self, target: Union[str, Callable], *, max_jobs: Optional[int] = None) -> int:
+    def build(self, target: Union[str, Callable], max_jobs: Optional[int] = None) -> int:
         """Build the target and its dependencies.
         
         Args:

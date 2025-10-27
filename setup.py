@@ -2,10 +2,15 @@ from setuptools import setup, find_packages
 
 setup(
     name="phantom-make",
-    version="0.1.3",
+    version="0.1.4",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=[],
+    entry_points={
+        'console_scripts': [
+            'ptm=ptm:main',
+        ],
+    },
     author="Phantom1003",
     author_email="phantom@zju.edu.cn",
     description="A python-based traceable make system",

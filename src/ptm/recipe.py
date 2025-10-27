@@ -1,9 +1,9 @@
 import os
-import functools
-from typing import List, Dict, Callable, Any, Optional, Union
-from collections import defaultdict
+from enum import Enum
+from typing import List, Dict, Callable, Any, Union
 
 from .logger import plog
+
 
 def _get_timestamp(path: str) -> int:
     if os.path.exists(path):
@@ -11,11 +11,55 @@ def _get_timestamp(path: str) -> int:
     else:
         return 0
 
+class BuildTargetType(Enum):
+    FILE = "file"
+    TASK = "func"
+
+class BuildTarget:
+    def __init__(self, target: Union[str, Callable]):
+        if callable(target):
+            self.type = BuildTargetType.TASK
+            self.name = target.__name__
+            self.meta = id(target)
+        else:
+            self.type = BuildTargetType.FILE
+            self.name = os.path.abspath(target)
+            self.meta = None
+
+    def __hash__(self):
+        if self.type == BuildTargetType.TASK:
+            return hash((self.type, self.name, self.meta))
+        else:
+            return hash((self.type, self.name))
+    
+    def __eq__(self, other):
+        if not isinstance(other, BuildTarget):
+            return False
+        if self.type != other.type:
+            return False
+        if self.name != other.name:
+            return False
+        if self.meta != other.meta:
+            return False
+        return True
+    
+    def __str__(self):
+        if self.type == BuildTargetType.TASK:
+            return f"{self.name}@{hex(self.meta)}"
+        else:
+            return self.name
+    
+    def __repr__(self):
+        return self.__str__()
+    
+    def get_display_name(self) -> str:
+        return self.__str__()
+
+
 class BuildRecipe:
     """Represents a build target with both recipe and tree structure information."""
     
-    def __init__(self, recipe: Callable, target: str, depends: List[str], *, external: bool = False, depth: int = 0):
-        # Build Recipe information
+    def __init__(self, recipe: Callable, target: BuildTarget, depends: List[BuildTarget], external: bool = False, depth: int = 0):
         self.target = target
         self.depends = depends
         self.recipe = recipe
@@ -25,13 +69,17 @@ class BuildRecipe:
         self.depth = depth
         self.children: List['BuildRecipe'] = []
 
-    def _outdate(self) -> bool:
-        target_timestamp = _get_timestamp(self.target)
+    def _outdate(self) -> bool:        
+        if self.target.type == BuildTargetType.TASK:
+            return True
+        
+        target_timestamp = _get_timestamp(self.target.name)
         if target_timestamp == 0:
             return True
-
         for depend in self.depends:
-            if _get_timestamp(depend) >= target_timestamp:
+            if depend.type == BuildTargetType.TASK:
+                return True
+            if _get_timestamp(depend.name) >= target_timestamp:
                 return True
 
         return False
@@ -41,12 +89,10 @@ class BuildRecipe:
             plog.info(f"Target '{self.target}' is up to date")
         else:
             plog.info(f"Building target: {self.target}")
-            if os.path.isabs(self.target):
-                os.makedirs(os.path.dirname(self.target), exist_ok=True)
-
+            if self.target.type == BuildTargetType.FILE and os.path.isabs(self.target.name):
+                os.makedirs(os.path.dirname(self.target.name), exist_ok=True)
             if self.external:
                 kwargs['jobs'] = jobs
-
             self.recipe(**kwargs)
     
     def add_child(self, child: 'BuildRecipe') -> None:
@@ -58,20 +104,22 @@ class BuildRecipe:
 
 
 class DependencyTree:
-    def __init__(self, valid_target_name: str, target_lut: Dict[str, BuildRecipe]):
+    def __init__(self, valid_target: BuildTarget, recipe_lut: Dict[BuildTarget, BuildRecipe]):
         self.max_depth = 0
-        self.recipe_lut: Dict[str, BuildRecipe] = target_lut
-        self.node_lut: Dict[str, BuildRecipe] = {}
+        self.recipe_lut: Dict[BuildTarget, BuildRecipe] = recipe_lut
+        self.node_lut: Dict[BuildTarget, BuildRecipe] = {}
         self.node_depth_map: Dict[int, List[BuildRecipe]] = {}
 
-        self.root = self._build_tree(valid_target_name, [], 0)
+        self.root = self._build_tree(valid_target, [], 0)
         self._compute_depth_map(self.root)
 
-    def _build_tree(self, target: str, history: List[str], depth: int = 0) -> BuildRecipe | None:
-        if target not in self.recipe_lut:
-            if not os.path.exists(target):
+    def _build_tree(self, target: BuildTarget, history: List[BuildTarget], depth: int = 0) -> BuildRecipe | None:
+        print(f"Building tree node for target: {target} at depth {depth}")
+        if target not in self.recipe_lut:        
+            if target.type == BuildTargetType.FILE and os.path.exists(target.name):
+                    return None
+            else:
                 raise ValueError(f"Target '{target}' not found")
-            return None
 
         if depth > self.max_depth:
             self.max_depth = depth

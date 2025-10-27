@@ -7,27 +7,25 @@ from ptm.builder import builder, target, targets, task
 
 def test_parallel_independent_targets(tmp_path):
     """Test parallel building of independent targets via a common parent"""
-    # Create multiple independent targets that will be built in parallel
+    builder.clean()
+
     output_files = [tmp_path / f"output{i}.txt" for i in range(4)]
     final_file = tmp_path / "final.txt"
     
     for i, output_file in enumerate(output_files):
-        local_i = i  # Capture value
+        local_i = i
         @target(str(output_file), [])
         def build_output(target, depends):
             with open(target, 'w') as f:
                 f.write(f"output {local_i}")
-    
-    # Create a final target that depends on all outputs
+
     @target(str(final_file), [str(f) for f in output_files])
     def build_final(target, depends):
         with open(target, 'w') as f:
             f.write("done")
-    
-    # Build with max_jobs=4 - independent targets should build in parallel
+
     builder.build(str(final_file), max_jobs=4)
-    
-    # All files should exist
+
     for output_file in output_files:
         assert output_file.exists()
     assert final_file.exists()
@@ -41,6 +39,7 @@ def test_parallel_with_dependencies(tmp_path):
     #  mid1   mid2
     #    \     /
     #     base
+    builder.clean()
     
     base_file = tmp_path / "base.txt"
     mid1_file = tmp_path / "mid1.txt"
@@ -74,11 +73,9 @@ def test_parallel_with_dependencies(tmp_path):
             data2 = f.read()
         with open(target, 'w') as f:
             f.write(f"{data1} + {data2}")
-    
-    # Build with parallel execution
+
     builder.build(str(final_file), max_jobs=4)
-    
-    # Check files exist and have correct content
+
     assert base_file.exists()
     assert mid1_file.exists()
     assert mid2_file.exists()
@@ -88,6 +85,8 @@ def test_parallel_with_dependencies(tmp_path):
 
 def test_parallel_with_max_jobs_limit(tmp_path):
     """Test that max_jobs parameter limits parallel execution"""
+    builder.clean()
+
     output_files = [tmp_path / f"output{i}.txt" for i in range(4)]
     final_file = tmp_path / "final.txt"
     
@@ -113,6 +112,8 @@ def test_parallel_with_max_jobs_limit(tmp_path):
 
 def test_external_task_parallel(tmp_path):
     """Test external task that can use multiple cores"""
+    builder.clean()
+
     output_file = tmp_path / "external_output.txt"
     marker_file = tmp_path / "jobs_marker.txt"
     
@@ -123,12 +124,10 @@ def test_external_task_parallel(tmp_path):
             f.write(str(jobs))
         with open(target, 'w') as f:
             f.write(f"Built with {jobs} cores")
-    
-    # Build with 4 jobs available
+
     builder.build(str(output_file), max_jobs=4)
     
     assert output_file.exists()
-    # Check that external task received jobs parameter
     assert marker_file.exists()
     jobs_used = int(marker_file.read_text())
     assert jobs_used >= 1, f"External task should receive at least 1 job, got {jobs_used}"
@@ -136,6 +135,8 @@ def test_external_task_parallel(tmp_path):
 
 def test_mixed_external_and_normal_tasks(tmp_path):
     """Test mixing external and normal tasks"""
+    builder.clean()
+
     normal_file = tmp_path / "normal.txt"
     external_file = tmp_path / "external.txt"
     final_file = tmp_path / "final.txt"
@@ -171,6 +172,8 @@ def test_mixed_external_and_normal_tasks(tmp_path):
 
 def test_task_parallel_execution(tmp_path):
     """Test parallel execution of task targets (no file output)"""
+    builder.clean()
+
     marker_dir = tmp_path / "markers"
     marker_dir.mkdir()
     
@@ -206,6 +209,7 @@ def test_large_dependency_tree_parallel(tmp_path):
     # Level 0: 1 file (root)
     # Level 1: 3 files
     # Level 2: 9 files
+    builder.clean()
     
     level2_files = [tmp_path / f"level2_{i}.txt" for i in range(9)]
     level1_files = [tmp_path / f"level1_{i}.txt" for i in range(3)]
@@ -242,7 +246,6 @@ def test_large_dependency_tree_parallel(tmp_path):
             f.write(" | ".join(data))
     
     # Build with parallel execution
-    builder.list_targets()
     builder.build(str(root_file), max_jobs=4)
     
     # All files should exist
@@ -253,6 +256,8 @@ def test_large_dependency_tree_parallel(tmp_path):
 
 def test_invalid_max_jobs():
     """Test that invalid max_jobs values are rejected"""
+    builder.clean()
+
     @task()
     def simple_task(target, depends):
         pass
@@ -267,6 +272,8 @@ def test_invalid_max_jobs():
 
 def test_parallel_rebuild_on_change(tmp_path):
     """Test that parallel builds correctly detect and rebuild changed dependencies"""
+    builder.clean()
+
     dep1 = tmp_path / "dep1.txt"
     dep2 = tmp_path / "dep2.txt"
     output1 = tmp_path / "output1.txt"
@@ -295,17 +302,14 @@ def test_parallel_rebuild_on_change(tmp_path):
     def build_final(target, depends):
         with open(target, 'w') as f:
             f.write("final")
-    
-    # First build
+
     builder.build(str(final), max_jobs=2)
     
     assert output1.read_text() == "DEP1 V1"
     assert output2.read_text() == "DEP2 V1"
-    
-    # Modify one dependency
+
     dep1.write_text("dep1 v2")
-    
-    # Rebuild - only output1 should rebuild
+
     builder.build(str(final), max_jobs=2)
     
     assert output1.read_text() == "DEP1 V2"
@@ -320,6 +324,7 @@ def test_parallel_with_shared_dependency(tmp_path):
     #          shared.txt
     #             |
     #          final.txt
+    builder.clean()
     
     shared_file = tmp_path / "shared.txt"
     output_files = [tmp_path / f"output{i}.txt" for i in range(3)]
@@ -343,11 +348,9 @@ def test_parallel_with_shared_dependency(tmp_path):
     def build_final(target, depends):
         with open(target, 'w') as f:
             f.write("final")
-    
-    # Build all outputs
+
     builder.build(str(final_file), max_jobs=4)
-    
-    # All files should exist
+
     assert shared_file.exists()
     for output_file in output_files:
         assert output_file.exists()
@@ -356,6 +359,8 @@ def test_parallel_with_shared_dependency(tmp_path):
 
 def test_sequential_build_mode(tmp_path):
     """Test that max_jobs=1 forces sequential execution"""
+    builder.clean()
+
     output_files = [tmp_path / f"output{i}.txt" for i in range(4)]
     final_file = tmp_path / "final.txt"
     
@@ -370,10 +375,8 @@ def test_sequential_build_mode(tmp_path):
     def build_final(target, depends):
         with open(target, 'w') as f:
             f.write("done")
-    
-    # Build sequentially
+
     builder.build(str(final_file), max_jobs=1)
-    
-    # All files should exist
+
     for output_file in output_files:
         assert output_file.exists()

@@ -4,6 +4,7 @@ from .include import include
 from .environ import environ
 from .shell import exec_cmd, exec_cmd_stdout, exec_cmd_stderr, exec_cmd_stdout_stderr
 from .builder import builder, task, target, targets
+from .cli import main as cli_main
 
 __version__ = "0.1.0"
 __all__ = [
@@ -15,3 +16,6 @@ __all__ = [
 ]
 
 enable_str_truediv()
+
+def main():
+    cli_main()

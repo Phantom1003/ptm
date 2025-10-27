@@ -23,14 +23,11 @@ class BuildTarget:
             self.meta = id(target)
         else:
             self.type = BuildTargetType.FILE
-            self.name = os.path.abspath(target)
-            self.meta = None
+            self.name = target
+            self.meta = os.path.abspath(target)
 
     def __hash__(self):
-        if self.type == BuildTargetType.TASK:
-            return hash((self.type, self.name, self.meta))
-        else:
-            return hash((self.type, self.name))
+        return hash((self.type, self.name, self.meta))
     
     def __eq__(self, other):
         if not isinstance(other, BuildTarget):
@@ -46,9 +43,9 @@ class BuildTarget:
     def __str__(self):
         if self.type == BuildTargetType.TASK:
             return f"{self.name}@{hex(self.meta)}"
-        else:
-            return self.name
-    
+        elif self.type == BuildTargetType.FILE:
+            return self.meta
+
     def __repr__(self):
         return self.__str__()
     
@@ -72,14 +69,14 @@ class BuildRecipe:
     def _outdate(self) -> bool:        
         if self.target.type == BuildTargetType.TASK:
             return True
-        
-        target_timestamp = _get_timestamp(self.target.name)
+
+        target_timestamp = _get_timestamp(self.target.meta)
         if target_timestamp == 0:
             return True
         for depend in self.depends:
             if depend.type == BuildTargetType.TASK:
                 return True
-            if _get_timestamp(depend.name) >= target_timestamp:
+            if _get_timestamp(depend.meta) >= target_timestamp:
                 return True
 
         return False
@@ -89,8 +86,9 @@ class BuildRecipe:
             plog.info(f"Target '{self.target}' is up to date")
         else:
             plog.info(f"Building target: {self.target}")
-            if self.target.type == BuildTargetType.FILE and os.path.isabs(self.target.name):
-                os.makedirs(os.path.dirname(self.target.name), exist_ok=True)
+            # Create target directory automatically, ptm feature
+            if self.target.type == BuildTargetType.FILE and os.path.isabs(self.target.meta):
+                os.makedirs(os.path.dirname(self.target.meta), exist_ok=True)
             if self.external:
                 kwargs['jobs'] = jobs
             self.recipe(**kwargs)
@@ -116,7 +114,7 @@ class DependencyTree:
     def _build_tree(self, target: BuildTarget, history: List[BuildTarget], depth: int = 0) -> BuildRecipe | None:
         print(f"Building tree node for target: {target} at depth {depth}")
         if target not in self.recipe_lut:        
-            if target.type == BuildTargetType.FILE and os.path.exists(target.name):
+            if target.type == BuildTargetType.FILE and os.path.exists(target.meta):
                     return None
             else:
                 raise ValueError(f"Target '{target}' not found")

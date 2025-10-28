@@ -2,7 +2,6 @@ import os
 import functools
 from typing import List, Dict, Callable, Optional, Union
 
-from .utils import *
 from ..system.logger import plog
 from .scheduler import BuildScheduler
 from .recipe import BuildTarget, BuildRecipe, DependencyTree
@@ -23,6 +22,27 @@ class BuildSystem:
         if cls._instance is None:
             cls._instance = BuildSystem()
         return cls._instance
+
+    def _find_target(self, look_for: str | Callable) -> Optional[BuildTarget]:
+        if callable(look_for):
+            look_for = look_for.__name__
+
+        for build_target, _ in self.recipe_lut.items():
+            if build_target.name == look_for:
+                return build_target
+            elif build_target.uid == look_for:
+                return build_target
+
+        raise ValueError(f"Target '{look_for}' not found")
+    
+    def _get_depends(self, target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable]) -> List[Union[str, Callable]]:
+        if callable(target):
+            target = target.__name__
+
+        if callable(depends):
+            return depends(target)
+        else:
+            return depends
 
     def _register_target(self, func: Callable, target: Union[str, Callable], depends: List[Union[str, Callable]], external: bool = False) -> Callable:
         build_target = BuildTarget(target)
@@ -48,18 +68,18 @@ class BuildSystem:
     def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
             for target in targets:
-                self._register_target(func, target, _get_depends(target, depends), external)
+                self._register_target(func, target, self._get_depends(target, depends), external)
             return func
         return decorator
 
     def target(self, target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
-            return self._register_target(func, target, _get_depends(target, depends), external)
+            return self._register_target(func, target, self._get_depends(target, depends), external)
         return decorator
 
     def task(self, depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
-            return self._register_target(func, func, _get_depends(func, depends), external)
+            return self._register_target(func, func, self._get_depends(func, depends), external)
         return decorator
 
     def build(self, target: Union[str, Callable, BuildTarget], max_jobs: Optional[int] = None) -> int:
@@ -100,19 +120,7 @@ class BuildSystem:
             target_display = f" -> {str(build_target)}"
             dep_display = f" <- {[str(dep) for dep in recipe.depends]}" if recipe.depends else ""
             plog.info(f"{target_display}: {dep_display}")
-    
-    def _find_target(self, look_for: str | Callable) -> Optional[BuildTarget]:
-        if callable(look_for):
-            look_for = look_for.__name__
 
-        for build_target, _ in self.recipe_lut.items():
-            if build_target.name == look_for:
-                return build_target
-            elif build_target.uid == look_for:
-                return build_target
-
-        raise ValueError(f"Target '{look_for}' not found")
-    
     def clean(self) -> None:
         self.recipe_lut.clear()
 

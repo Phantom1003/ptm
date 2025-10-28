@@ -2,9 +2,7 @@ import os
 from enum import Enum
 from typing import List, Dict, Callable, Any, Union
 
-from .utils import *
 from ..system.logger import plog
-
 
 
 class BuildTargetType(Enum):
@@ -63,17 +61,23 @@ class BuildRecipe:
         self.depth = depth
         self.children: List['BuildRecipe'] = []
 
+    def _get_timestamp(self, path: str) -> int:
+        if os.path.exists(path):
+            return os.stat(path).st_mtime_ns
+        else:
+            return 0
+
     def _outdate(self) -> bool:        
         if self.target.type == BuildTargetType.TASK:
             return True
 
-        target_timestamp = _get_timestamp(self.target.uid)
+        target_timestamp = self._get_timestamp(self.target.uid)
         if target_timestamp == 0:
             return True
         for depend in self.depends:
             if depend.type == BuildTargetType.TASK:
                 return True
-            if _get_timestamp(depend.uid) >= target_timestamp:
+            if self._get_timestamp(depend.uid) >= target_timestamp:
                 return True
 
         return False

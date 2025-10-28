@@ -297,5 +297,9 @@ class PTMLoader(SourceLoader):
             exec(compile(self.get_data(self.get_filename("")), self.path, "exec"), module.__dict__)
         except Exception as e:
             if self.type == "ptm":
+                import sys, traceback
                 print(f"Failed to execute the translated PTM file: {self.cache}, please check the original PTM file: {self.path}")
+                print(f"{type(e).__name__}: {e}")
+                traceback.print_exc()
+                sys.exit(1)
             raise e

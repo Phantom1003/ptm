@@ -61,16 +61,15 @@ def main():
     plog.info(f"Loading build file: {build_file}")
     plog.info(f"Target: {target_name}")
 
-    try:
-        include(build_file, param)
-    except Exception as e:
-        print(f"Error loading build file: {e}")
-        sys.exit(1)
+    recipe = include(build_file, param)
     
     try:
         builder.build(target_name)
     except Exception as e:
-        print(f"Error building target: {e}")
+        import traceback
+        print(f"\nError building target '{target_name}':")
+        print(f"{type(e).__name__}: {e}")
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ Usage:
     ptm <target> [options]
 
 The tool reads `build.ptm` from the current directory and builds the specified target.
-All command line arguments after the target name are available to the build script via ptm.argv.
+All command line arguments after the target name are available to the build script via Parameter.
 """
 
 import os
@@ -17,49 +17,8 @@ from .include import include
 from .builder import builder
 from .param import Parameter
 
-argv = None
 
-class ArgvDict:
-    def __init__(self, args):
-        """Initialize with command line arguments (excluding program name and target)."""
-        self._args = args
-        self._dict = {}
-        self._parse()
-    
-    def _parse(self):
-        """Parse command line arguments into a dictionary."""
-        i = 0
-        while i < len(self._args):
-            arg = self._args[i]
-            if arg.startswith('-'):
-                # Check if next argument exists and is not a flag
-                if i + 1 < len(self._args) and not self._args[i + 1].startswith('-'):
-                    self._dict[arg] = self._args[i + 1]
-                    i += 2
-                else:
-                    self._dict[arg] = True
-                    i += 1
-            else:
-                i += 1
-    
-    def __getitem__(self, key):
-        """Get argument value by flag name."""
-        return self._dict.get(key)
-    
-    def __contains__(self, key):
-        """Check if flag is present."""
-        return key in self._dict
-    
-    def get(self, key, default=None):
-        """Get argument value with default."""
-        return self._dict.get(key, default)
-    
-    def __repr__(self):
-        return f"ArgvDict({self._dict})"
-    
-    def __str__(self):
-        return str(self._dict)
-
+param = Parameter()
 
 def main():
     args = sys.argv[1:]
@@ -67,41 +26,52 @@ def main():
     if len(args) > 0 and args[0] in ['-h', '--help']:
         print(__doc__)
         sys.exit(0)
-
+    
     if len(args) == 0:
         target_name = "all"
         user_args = []
-    elif args[0].startswith(('-', '+')):
+    elif args[0].startswith(('-')):
         target_name = "all"
         user_args = args
     else:    
         target_name = args[0]
         user_args = args[1:]
 
-    global argv
-    argv = ArgvDict(user_args)
+    i = 0
+    while i < len(user_args):
+        arg = user_args[i]
+        if arg.startswith('-'):
+            key = arg.lstrip('-')
+            if i + 1 < len(user_args) and not user_args[i + 1].startswith('-'):
+                param.add({key: user_args[i + 1]})
+                i += 2
+            else:
+                param.add({key: True})
+                i += 1
+
+        else:
+            print(f"Error: Invalid argument: {arg}")
+            sys.exit(1)
 
     build_file = os.path.abspath('./build.ptm')
-
     if not os.path.exists(build_file):
         print(f"Error: build.ptm not found in current directory: {os.getcwd()}")
         sys.exit(1)
 
+    plog.info(f"Loading build file: {build_file}")
+    plog.info(f"Target: {target_name}")
+
     try:
-        include(build_file, param=Parameter())
+        include(build_file, param)
     except Exception as e:
         print(f"Error loading build file: {e}")
         sys.exit(1)
     
-    plog.info(f"Build target '{target_name}'")
     try:
         builder.build(target_name)
     except Exception as e:
         print(f"Error building target: {e}")
-        import traceback
-        traceback.print_exc()
         sys.exit(1)
-
 
 if __name__ == '__main__':
     main()

@@ -4,8 +4,8 @@ tasks = []
 for i in range(1, 10):  
     @task()
     def build_task(target, depends, i=i):
-        print(f"Starting task{i} ")
-        time.sleep(i)
+        print(f"Starting task {i}")
+        # time.sleep((11-i) * 0.5)
 
     tasks.append(build_task)
 

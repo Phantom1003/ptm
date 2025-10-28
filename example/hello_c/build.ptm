@@ -7,17 +7,19 @@ hello_hdr = BUILD / 'hello.h'
 hello_c = BUILD / 'hello.c'
 hello_elf = BUILD / 'hello'
 
+hello_target = param.get("to", "World")
+
+hdr_template = f"""
+#define TARGET "{hello_target}"
+"""
+
 @target(hello_hdr)
 def build_hdr(target, depends):
     with open(target, 'w') as f:
-        f.write(f"""
-#define TARGET "{${TARGET}}"
-""")
+        f.write(hdr_template)
 
-@target(hello_c, [hello_hdr])
-def build_c(target, depends):
-    with open(target, 'w') as f:
-        f.write("""
+
+hello_template = """
 #include <stdio.h>
 #include "hello.h"
 
@@ -25,13 +27,22 @@ int main() {
     printf("Hello, %s!\\n", TARGET);
     return 0;
 }
-""")
+"""
+
+@target(hello_c, [hello_hdr])
+def build_c(target, depends):
+    with open(target, 'w') as f:
+        f.write(hello_template)
     print(f'{target} created')
 
 @target(hello_elf, [hello_c])
 def build_elf(target, depends):
-    $'gcc {depends[0]} -DTARGET=\\"{${TARGET}}\\" -o {target}'
+    $'gcc {depends[0]} -o {target}'
 
 @task([hello_elf])
 def hello_run(target, depends):
     $"{depends[0]}"
+
+@task([hello_run])
+def all(target, depends):
+    print("Build complete!")

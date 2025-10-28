@@ -20,14 +20,15 @@ class BuildTarget:
         if callable(target):
             self.type = BuildTargetType.TASK
             self.name = target.__name__
-            self.meta = id(target)
+            self.uid = id(target)
+            self.meta = f"{target.__code__.co_filename}@{target.__code__.co_firstlineno}"
         else:
             self.type = BuildTargetType.FILE
             self.name = target
-            self.meta = os.path.abspath(target)
+            self.uid = os.path.abspath(target)
 
     def __hash__(self):
-        return hash((self.type, self.name, self.meta))
+        return hash((self.type, self.uid))
     
     def __eq__(self, other):
         if not isinstance(other, BuildTarget):
@@ -36,15 +37,15 @@ class BuildTarget:
             return False
         if self.name != other.name:
             return False
-        if self.meta != other.meta:
+        if self.uid != other.uid:
             return False
         return True
     
     def __str__(self):
         if self.type == BuildTargetType.TASK:
-            return f"{self.name}@{hex(self.meta)}"
+            return f"{self.name} [{self.meta}]"
         elif self.type == BuildTargetType.FILE:
-            return self.meta
+            return self.uid
 
     def __repr__(self):
         return self.__str__()
@@ -70,13 +71,13 @@ class BuildRecipe:
         if self.target.type == BuildTargetType.TASK:
             return True
 
-        target_timestamp = _get_timestamp(self.target.meta)
+        target_timestamp = _get_timestamp(self.target.uid)
         if target_timestamp == 0:
             return True
         for depend in self.depends:
             if depend.type == BuildTargetType.TASK:
                 return True
-            if _get_timestamp(depend.meta) >= target_timestamp:
+            if _get_timestamp(depend.uid) >= target_timestamp:
                 return True
 
         return False
@@ -86,9 +87,9 @@ class BuildRecipe:
             plog.info(f"Target '{self.target}' is up to date")
         else:
             plog.info(f"Building target: {self.target}")
-            # Create target directory automatically, ptm feature
-            if self.target.type == BuildTargetType.FILE and os.path.isabs(self.target.meta):
-                os.makedirs(os.path.dirname(self.target.meta), exist_ok=True)
+            # PTM feature: create target directory automatically
+            if self.target.type == BuildTargetType.FILE and os.path.isabs(self.target.uid):
+                os.makedirs(os.path.dirname(self.target.uid), exist_ok=True)
             if self.external:
                 kwargs['jobs'] = jobs
             self.recipe(**kwargs)
@@ -112,9 +113,8 @@ class DependencyTree:
         self._compute_depth_map(self.root)
 
     def _build_tree(self, target: BuildTarget, history: List[BuildTarget], depth: int = 0) -> BuildRecipe | None:
-        print(f"Building tree node for target: {target} at depth {depth}")
         if target not in self.recipe_lut:        
-            if target.type == BuildTargetType.FILE and os.path.exists(target.meta):
+            if target.type == BuildTargetType.FILE and os.path.exists(target.uid):
                     return None
             else:
                 raise ValueError(f"Target '{target}' not found")

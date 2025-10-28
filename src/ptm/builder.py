@@ -116,7 +116,7 @@ class BuildSystem:
         for build_target, _ in self.recipe_lut.items():
             if build_target.name == look_for:
                 return build_target
-            elif build_target.meta == look_for:
+            elif build_target.uid == look_for:
                 return build_target
 
         raise ValueError(f"Target '{look_for}' not found")

@@ -1,0 +1,7 @@
+@task()
+def hello(target, depends):
+    $"echo 'Hello, {${USER}}!'"
+
+@task([hello])
+def all(target, depends):
+    print("Build complete!")

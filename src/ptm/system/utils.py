@@ -18,3 +18,4 @@ def _get_depends(target: Union[str, Callable], depends: Union[List[Union[str, Ca
         return depends(target)
     else:
         return depends
+

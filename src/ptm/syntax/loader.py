@@ -294,7 +294,7 @@ class PTMLoader(SourceLoader):
         Execute the module.
         """
         try:
-            exec(compile(self.get_data(self.get_filename("")), "<PTM>", "exec"), module.__dict__)
+            exec(compile(self.get_data(self.get_filename("")), self.path, "exec"), module.__dict__)
         except Exception as e:
             if self.type == "ptm":
                 print(f"Failed to execute the translated PTM file: {self.cache}, please check the original PTM file: {self.path}")

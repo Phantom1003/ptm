@@ -1,38 +1,11 @@
 import os
 import functools
-from typing import List, Dict, Callable, Any, Union
+from typing import List, Dict, Callable, Optional, Union
 
-from .logger import plog
-from .utils import _get_timestamp, _get_target_name, _get_depends
-
-
-class BuildTarget:
-    def __init__(self, recipe: Callable, target: str, depends: List[str]):
-        self.target = target
-        self.depends = depends
-        self.recipe = recipe
-
-    def _check_valid(self) -> bool:
-        target_timestamp = _get_timestamp(self.target)
-        if target_timestamp == 0:
-            return True
-
-        for depend in self.depends:
-            if _get_timestamp(depend) >= target_timestamp:
-                return True
-
-        return False
-
-    def build(self, **kwargs) -> Any:
-        if not self._check_valid():
-            plog.info(f"Target '{self.target}' is up to date")
-
-        else:
-            plog.info(f"Building target: {self.target}")
-            if os.path.isabs(self.target):
-                os.makedirs(os.path.dirname(self.target), exist_ok=True)
-
-            self.recipe(**kwargs)
+from .utils import *
+from ..system.logger import plog
+from .scheduler import BuildScheduler
+from .recipe import BuildTarget, BuildRecipe, DependencyTree
 
 
 class BuildSystem:
@@ -42,97 +15,106 @@ class BuildSystem:
         if BuildSystem._instance is not None:
             raise RuntimeError("BuildSystem is a singleton")
             
-        self.target_lut: Dict[str, BuildTarget] = {}
-        self._visited: Dict[str, bool] = {}
-        self._build_order: List[str] = []
-        
+        self.recipe_lut: Dict[BuildTarget, BuildRecipe] = {}
+        self.default_max_jobs: int = os.cpu_count() or 1
+
     @classmethod
     def get_instance(cls) -> 'BuildSystem':
         if cls._instance is None:
             cls._instance = BuildSystem()
         return cls._instance
 
-    def _register_target(self, func: Callable, target: Union[str, Callable], depends: List[Union[str, Callable]]) -> Callable:
-        target_real_name = _get_target_name(target)
-        depends_real_name = [_get_target_name(depend) for depend in depends]
+    def _register_target(self, func: Callable, target: Union[str, Callable], depends: List[Union[str, Callable]], external: bool = False) -> Callable:
+        build_target = BuildTarget(target)
+        build_depends = [BuildTarget(dep) for dep in depends]
 
-        if not func.__code__.co_varnames[:func.__code__.co_argcount] == ('target', 'depends'):
-            raise ValueError(f"Task must take exactly two named arguments: target and depends")
+        func_sig_args = func.__code__.co_varnames
+        if func_sig_args[0] != 'target' or func_sig_args[1] != 'depends':
+            raise ValueError("Task parameters must start with 'target' and 'depends'")
 
-        partial_func = functools.partial(func, target_real_name, depends_real_name)
+        if external and (len(func_sig_args) < 3 or func_sig_args[2] != 'jobs'):
+            raise ValueError("If external is specified, task must accept 'jobs' parameter")
+
+        # Pass the display name to the partial function
+        target_name = build_target.name
+        depends_names = [dep.name for dep in build_depends]
+
+        partial_func = functools.partial(func, target=target_name, depends=depends_names)
         partial_func.__name__ = func.__name__
-        build_target = BuildTarget(partial_func, target_real_name, depends_real_name)
-        self.target_lut[target_real_name] = build_target
+        build_recipe = BuildRecipe(partial_func, build_target, build_depends, external=bool(external))
+        self.recipe_lut[build_target] = build_recipe
         return func
 
-    def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = []):
+    def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
             for target in targets:
-                self._register_target(func, target, _get_depends(target, depends))
+                self._register_target(func, target, _get_depends(target, depends), external)
             return func
         return decorator
 
-    def target(self, target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable] = []):
+    def target(self, target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
-            return self._register_target(func, target, _get_depends(target, depends))
+            return self._register_target(func, target, _get_depends(target, depends), external)
         return decorator
 
-    def task(self, depends: Union[List[Union[str, Callable]], Callable] = []):
+    def task(self, depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
-            return self._register_target(func, func, _get_depends(func, depends))
+            return self._register_target(func, func, _get_depends(func, depends), external)
         return decorator
 
-    def _visit(self, target: str, history: List[str]) -> None:
-        if target not in self.target_lut:
-            if not os.path.exists(target):
-                raise ValueError(f"Target '{target}' not found")
-            return
-                
-        for dep in self.target_lut[target].depends:
-            if dep in history:
-                plog.info(f"Circular dependency {target} <- {dep} dropped.")
-                continue
-            self._visit(dep, history + [target])
-
-        if not self._visited.get(target, False):     
-            self._visited[target] = True
-            self._build_order.append(target)
-
-    def get_build_order(self, target: str) -> List[str]:
-        self._visited.clear()
-        self._build_order.clear()
+    def build(self, target: Union[str, Callable, BuildTarget], max_jobs: Optional[int] = None) -> int:
+        """Build the target and its dependencies.
         
-        self._visit(target, [])
-        return self._build_order
+        Args:
+            target: Target name or callable to build
+            max_jobs: Maximum number of parallel jobs
+        
+        Returns:
+            Exit code: 0 for success, non-zero for failure
+        """
+        if max_jobs is not None and max_jobs < 1:
+            raise ValueError("Job count must be at least 1!")
+        max_jobs = self.default_max_jobs if max_jobs is None else max_jobs
 
-    def build(self, target: Union[str, Callable]) -> Any:
-        target = _get_target_name(target)
+        if not isinstance(target, BuildTarget):
+            target = self._find_target(target)
 
-        if target not in self.target_lut:
-            raise ValueError(f"Target '{target}' not found")
-            
-        build_order = self.get_build_order(target)
-
-        for t in build_order:
-            if t in self.target_lut:
-                self.target_lut[t].build()
+        tree = DependencyTree(target, self.recipe_lut)
+        scheduler = BuildScheduler(tree.get_build_order(), max_jobs)
+        exitcode = scheduler.run()
+        return exitcode
     
     def add_dependency(self, target: Union[str, Callable], depends: List[Union[str, Callable]]) -> None:
-        target_real_name = _get_target_name(target)
-        depends_real_name = [_get_target_name(depend) for depend in depends]
+        build_target = BuildTarget(target)
+        build_depends = [BuildTarget(dep) for dep in depends]
 
-        if target_real_name not in self.target_lut:
-            raise ValueError(f"Target '{target_real_name}' not found")
+        if build_target not in self.recipe_lut:
+            raise ValueError(f"Target '{build_target}' not found")
 
-        self.target_lut[target_real_name].depends.extend(depends_real_name)
+        self.recipe_lut[build_target].depends.extend(build_depends)
 
     def list_targets(self) -> None:
         """List all available targets and their descriptions."""
         plog.info("Available targets:")
-        for _, target in self.target_lut.items():
-            target_file = f" -> {str(target.target)}" if target.target else ""
-            dep_files = f" <- {[str(f) for f in target.depends]}" if target.depends else ""
-            plog.info(f"{target_file}: {dep_files}")
+        for build_target, recipe in self.recipe_lut.items():
+            target_display = f" -> {str(build_target)}"
+            dep_display = f" <- {[str(dep) for dep in recipe.depends]}" if recipe.depends else ""
+            plog.info(f"{target_display}: {dep_display}")
+    
+    def _find_target(self, look_for: str | Callable) -> Optional[BuildTarget]:
+        if callable(look_for):
+            look_for = look_for.__name__
+
+        for build_target, _ in self.recipe_lut.items():
+            if build_target.name == look_for:
+                return build_target
+            elif build_target.uid == look_for:
+                return build_target
+
+        raise ValueError(f"Target '{look_for}' not found")
+    
+    def clean(self) -> None:
+        self.recipe_lut.clear()
 
 # Create global instance and decorator
 builder = BuildSystem.get_instance()

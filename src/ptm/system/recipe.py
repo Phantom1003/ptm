@@ -104,7 +104,7 @@ class DependencyTree:
         self.max_depth = 0
         self.recipe_lut: Dict[BuildTarget, BuildRecipe] = recipe_lut
         self.node_lut: Dict[BuildTarget, BuildRecipe] = {}
-        self.node_depth_map: Dict[int, List[BuildRecipe]] = {}
+        self.node_depth_map: Dict[int, set[BuildRecipe]] = {}
 
         self.root = self._build_tree(valid_target, [], 0)
         self._compute_depth_map(self.root)
@@ -160,8 +160,8 @@ class DependencyTree:
             return
 
         if node.depth not in self.node_depth_map:
-            self.node_depth_map[node.depth] = []
-        self.node_depth_map[node.depth].append(node)
+            self.node_depth_map[node.depth] = set()
+        self.node_depth_map[node.depth].add(node)
         
         for child in node.children:
             self._compute_depth_map(child)

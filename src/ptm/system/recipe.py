@@ -116,13 +116,14 @@ class DependencyTree:
             else:
                 raise ValueError(f"Target '{target}' not found")
 
+        plog.debug(f"Building tree node for target '{target}' at depth {depth}")
+
         if depth > self.max_depth:
             self.max_depth = depth
 
         if target in self.node_lut:
             prv_node = self.node_lut[target]
             if depth > prv_node.depth:
-                prv_node.depth = depth
                 self._update_subtree_depth(prv_node, depth)
             return prv_node
 
@@ -141,18 +142,18 @@ class DependencyTree:
                 new_node.add_child(child_node)
 
         return new_node
-    
-    def _update_subtree_depth(self, node: BuildRecipe, parent_depth: int) -> None:
-        new_depth = parent_depth + 1
+
+    def _update_subtree_depth(self, node: BuildRecipe, new_depth: int) -> None:
+        plog.debug(f"Updating depth for node '{node.target}' from {node.depth} to {new_depth}")
         if new_depth <= node.depth:
             return
 
         if new_depth > self.max_depth:
             self.max_depth = new_depth
-        
+
         node.depth = new_depth
         for child in node.children:
-            self._update_subtree_depth(child, new_depth)
+            self._update_subtree_depth(child, new_depth + 1)
     
     def _compute_depth_map(self, node: BuildRecipe | None) -> None:
         if node is None:
@@ -161,6 +162,7 @@ class DependencyTree:
         if node.depth not in self.node_depth_map:
             self.node_depth_map[node.depth] = []
         self.node_depth_map[node.depth].append(node)
+        
         for child in node.children:
             self._compute_depth_map(child)
 

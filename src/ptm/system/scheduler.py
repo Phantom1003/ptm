@@ -1,6 +1,4 @@
-import sys
 import os
-import traceback
 import multiprocessing as mp
 from typing import List, Dict, Optional, Tuple
 
@@ -122,8 +120,7 @@ class BuildScheduler:
 
             if len(self.wip) == 0:
                 if len(self.done) < len(self.build_order):
-                    self.error = "Deadlock detected: no runnable tasks but build incomplete"
-                    plog.error(self.error)
+                    plog.error("Deadlock detected: no runnable tasks but build incomplete")
                     return 1
                 return 0
 

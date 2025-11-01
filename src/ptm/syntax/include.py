@@ -18,29 +18,11 @@ def _get_parent_parameter():
     caller_frame = caller_frame[2].frame
     return caller_frame.f_globals.get("param", None)
 
-def _abs_include_path(file_path: str) -> str:
-    """
-    Resolve the absolute path of a file.
-    
-    Args:
-        file_path: The path to resolve (can be absolute or relative)
-        
-    Returns:
-        The absolute path to the file
-    """
-    if os.path.isabs(file_path):
-        return file_path
-    else:
-        caller_frame = inspect.stack()
-        caller_file = caller_frame[2].filename
-
-        if caller_file.endswith(".ptm"):
-            caller_dir = os.path.dirname(os.path.abspath(caller_file))
-            abs_path = os.path.abspath(os.path.join(caller_dir, file_path))
-        else:
-            abs_path = os.path.abspath(file_path)
-
-        return abs_path
+def _get_parent_globals():
+    """Get the global namespace from the parent caller."""
+    caller_frame = inspect.stack()
+    caller_frame = caller_frame[2].frame
+    return caller_frame.f_globals
 
 
 def include(file_path: str, param: Optional[Parameter] = None) -> str:
@@ -83,6 +65,11 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     module.__package__ = None
     module.__spec__ = spec
     module.__loader__ = spec.loader
+
+    parent_globals = _get_parent_globals()
+    for key, value in parent_globals.items():
+        if not key.startswith('_'):
+            module.__dict__[key] = value
 
     module.ptm = sys.modules["ptm"]
     module.include = include

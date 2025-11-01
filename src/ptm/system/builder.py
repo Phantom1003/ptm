@@ -58,6 +58,7 @@ class BuildSystem:
         # Pass the display name to the partial function
         target_name = build_target.name
         depends_names = [dep.name for dep in build_depends]
+        plog.debug(f"Registering target '{target_name}' with depends {depends_names} (external={external})")
 
         partial_func = functools.partial(func, target=target_name, depends=depends_names)
         partial_func.__name__ = func.__name__
@@ -67,8 +68,17 @@ class BuildSystem:
 
     def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
-            for target in targets:
-                self._register_target(func, target, self._get_depends(target, depends), external)
+            if len(targets) == 0:
+                raise ValueError("At least one target must be specified")
+
+            first_target = targets[0]
+            self._register_target(func, first_target, self._get_depends(first_target, depends), external)
+
+            if len(targets) > 1:
+                def dummy_task(target, depends, jobs):
+                    pass
+                for target in targets[1:]:
+                    self._register_target(dummy_task, target, [first_target], external)
             return func
         return decorator
 

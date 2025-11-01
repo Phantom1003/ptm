@@ -43,9 +43,6 @@ class BuildTarget:
 
     def __repr__(self):
         return self.__str__()
-    
-    def get_display_name(self) -> str:
-        return self.__str__()
 
 
 class BuildRecipe:
@@ -107,7 +104,7 @@ class DependencyTree:
         self.max_depth = 0
         self.recipe_lut: Dict[BuildTarget, BuildRecipe] = recipe_lut
         self.node_lut: Dict[BuildTarget, BuildRecipe] = {}
-        self.node_depth_map: Dict[int, List[BuildRecipe]] = {}
+        self.node_depth_map: Dict[int, set[BuildRecipe]] = {}
 
         self.root = self._build_tree(valid_target, [], 0)
         self._compute_depth_map(self.root)
@@ -119,13 +116,14 @@ class DependencyTree:
             else:
                 raise ValueError(f"Target '{target}' not found")
 
+        plog.debug(f"Building tree node for target '{target}' at depth {depth}")
+
         if depth > self.max_depth:
             self.max_depth = depth
 
         if target in self.node_lut:
             prv_node = self.node_lut[target]
             if depth > prv_node.depth:
-                prv_node.depth = depth
                 self._update_subtree_depth(prv_node, depth)
             return prv_node
 
@@ -144,26 +142,27 @@ class DependencyTree:
                 new_node.add_child(child_node)
 
         return new_node
-    
-    def _update_subtree_depth(self, node: BuildRecipe, parent_depth: int) -> None:
-        new_depth = parent_depth + 1
+
+    def _update_subtree_depth(self, node: BuildRecipe, new_depth: int) -> None:
+        plog.debug(f"Updating depth for node '{node.target}' from {node.depth} to {new_depth}")
         if new_depth <= node.depth:
             return
 
         if new_depth > self.max_depth:
             self.max_depth = new_depth
-        
+
         node.depth = new_depth
         for child in node.children:
-            self._update_subtree_depth(child, new_depth)
+            self._update_subtree_depth(child, new_depth + 1)
     
     def _compute_depth_map(self, node: BuildRecipe | None) -> None:
         if node is None:
             return
 
         if node.depth not in self.node_depth_map:
-            self.node_depth_map[node.depth] = []
-        self.node_depth_map[node.depth].append(node)
+            self.node_depth_map[node.depth] = set()
+        self.node_depth_map[node.depth].add(node)
+        
         for child in node.children:
             self._compute_depth_map(child)
 

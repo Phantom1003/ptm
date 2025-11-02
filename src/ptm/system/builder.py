@@ -69,7 +69,7 @@ class BuildSystem:
     def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
             for target in targets:
-                self._register_target(func, target, depends, external)
+                self._register_target(func, target, self._get_depends(target, depends), external)
             return func
         return decorator
 

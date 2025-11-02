@@ -68,23 +68,25 @@ class BuildSystem:
 
     def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
-            if len(targets) == 0:
-                raise ValueError("At least one target must be specified")
-
-            first_target = targets[0]
-            self._register_target(func, first_target, self._get_depends(first_target, depends), external)
-
-            if len(targets) > 1:
-                def dummy_task(target, depends, jobs):
-                    pass
-                for target in targets[1:]:
-                    self._register_target(dummy_task, target, [first_target], external)
+            for target in targets:
+                self._register_target(func, target, depends, external)
             return func
         return decorator
 
-    def target(self, target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
+    def target(self, target: Union[str, Callable, List[str | Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
         def decorator(func):
-            return self._register_target(func, target, self._get_depends(target, depends), external)
+            if isinstance(target, list):
+                first_t = target[0]
+                self._register_target(func, first_t, self._get_depends(first_t, depends), external)
+
+                if len(target) > 1:
+                    def dummy_task(target, depends, jobs):
+                        pass
+                    for t in target[1:]:
+                        self._register_target(dummy_task, t, [first_t], external)
+                return func
+            else:
+                return self._register_target(func, target, self._get_depends(target, depends), external)
         return decorator
 
     def task(self, depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):

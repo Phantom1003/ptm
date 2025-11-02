@@ -48,9 +48,8 @@ def test_multiple_targets(tmp_path):
     def build_outputs(target, depends):
         with open(depends[0], 'r') as f:
             data = f.read()
-        for file in [target1, target2]:
-            with open(file, 'w') as f:
-                f.write(data.upper())
+        with open(target, 'w') as f:
+            f.write(data.upper())
 
     builder.build(str(target1))
     builder.build(str(target2))

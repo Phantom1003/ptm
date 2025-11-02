@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="phantom-make",
-    version="0.1.8",
+    version="0.1.9",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=[],

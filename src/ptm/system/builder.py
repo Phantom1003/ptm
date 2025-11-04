@@ -80,10 +80,10 @@ class BuildSystem:
                 self._register_target(func, first_t, self._get_depends(first_t, depends), external)
 
                 if len(target) > 1:
-                    def dummy_task(target, depends, jobs):
-                        pass
+                    def dummy_task(target, depends):
+                        return
                     for t in target[1:]:
-                        self._register_target(dummy_task, t, [first_t], external)
+                        self._register_target(dummy_task, t, [first_t])
                 return func
             else:
                 return self._register_target(func, target, self._get_depends(target, depends), external)

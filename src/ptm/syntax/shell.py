@@ -3,7 +3,8 @@ Module for executing shell commands.
 """
 
 import subprocess
-from typing import Optional, Tuple, Union
+from typing import Optional
+import shlex
 
 from ..system.logger import plog
 
@@ -30,7 +31,10 @@ def exec_cmd(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
     Returns:
         int: The exit status of the command
     """
-    plog.info("Executing command:", cmd)
+    plog.debug("Executing command:", cmd)
+    cmd = " ".join(shlex.split(cmd))
+    plog.info(cmd)
+
     process = subprocess.Popen(
         cmd,
         shell=shell,
@@ -57,7 +61,7 @@ def exec_cmd_stdout(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> 
     Returns:
         str: The standard output of the command
     """
-    plog.info(cmd)
+    plog.debug(cmd)
     process = subprocess.Popen(
         cmd,
         shell=shell,
@@ -84,7 +88,7 @@ def exec_cmd_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> 
     Returns:
         str: The standard error of the command
     """
-    plog.info("Executing command:", cmd)
+    plog.debug("Executing command:", cmd)
     process = subprocess.Popen(
         cmd,
         shell=shell,
@@ -111,7 +115,7 @@ def exec_cmd_stdout_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = No
     Returns:
         str: The combined standard output and error of the command
     """
-    plog.info("Executing command:", cmd)
+    plog.debug("Executing command:", cmd)
     process = subprocess.Popen(
         cmd,
         shell=shell,

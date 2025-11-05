@@ -84,9 +84,6 @@ class BuildRecipe:
             plog.info(f"Target '{self.target}' is up to date")
         else:
             plog.info(f"Building target: {self.target}")
-            # PTM feature: create target directory automatically
-            if self.target.type == BuildTargetType.FILE and os.path.isabs(self.target.uid):
-                os.makedirs(os.path.dirname(self.target.uid), exist_ok=True)
             if self.external:
                 kwargs['jobs'] = jobs
             self.recipe(**kwargs)

@@ -32,7 +32,7 @@ def exec_cmd(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
         int: The exit status of the command
     """
     plog.debug("Executing command:", cmd)
-    cmd = " ".join(shlex.split(cmd))
+    cmd = " ".join(cmd.split())
     plog.info(cmd)
 
     process = subprocess.Popen(
@@ -62,6 +62,9 @@ def exec_cmd_stdout(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> 
         str: The standard output of the command
     """
     plog.debug(cmd)
+    cmd = " ".join(cmd.split())
+    plog.info(cmd)
+
     process = subprocess.Popen(
         cmd,
         shell=shell,
@@ -89,6 +92,9 @@ def exec_cmd_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> 
         str: The standard error of the command
     """
     plog.debug("Executing command:", cmd)
+    cmd = " ".join(cmd.split())
+    plog.info(cmd)
+
     process = subprocess.Popen(
         cmd,
         shell=shell,
@@ -116,6 +122,9 @@ def exec_cmd_stdout_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = No
         str: The combined standard output and error of the command
     """
     plog.debug("Executing command:", cmd)
+    cmd = " ".join(cmd.split())
+    plog.info(cmd)
+
     process = subprocess.Popen(
         cmd,
         shell=shell,

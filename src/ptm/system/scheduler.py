@@ -1,4 +1,5 @@
 import os
+import signal
 import multiprocessing as mp
 from typing import List, Dict, Optional, Tuple
 
@@ -7,6 +8,7 @@ from .recipe import BuildRecipe
 
 
 def _proc_run_target(recipe: BuildRecipe, jobs_alloc: int) -> None:
+    os.setsid()
     recipe.build(jobs=jobs_alloc)
 
 class BuildScheduler:
@@ -103,28 +105,42 @@ class BuildScheduler:
         while self.ptr < len(self.build_order) and self.build_order[self.ptr] in self.done:
             self.ptr += 1
 
+    def _cleanup(self) -> None:
+        plog.info("Terminating all running builds...")
+        for proc, _ in self.wip.values():
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        for proc, _ in self.wip.values():
+            proc.join()
+
     def run(self) -> int:
         """Main scheduling loop.
         
         Returns:
             Exit code: 0 for success, non-zero for failure
         """
-        while True:
-            if self.error:
-                return self.error
-            
-            if len(self.done) == len(self.build_order):
-                plog.debug("All targets completed")
-                return 0
+        try:
+            while True:
+                if self.error:
+                    self._cleanup()
+                    return self.error
+                
+                if len(self.done) == len(self.build_order):
+                    plog.debug("All targets completed")
+                    return 0
 
-            self._advance_pointer()
-            self._select_and_launch_tasks()
+                self._advance_pointer()
+                self._select_and_launch_tasks()
 
-            if len(self.wip) == 0:
-                if len(self.done) < len(self.build_order):
-                    plog.error("Deadlock detected: no runnable tasks but build incomplete")
-                    return 1
-                return 0
+                if len(self.wip) == 0:
+                    if len(self.done) < len(self.build_order):
+                        plog.error("Deadlock detected: no runnable tasks but build incomplete")
+                        return 1
+                    return 0
 
-            if len(self.wip) > 0:
-                self._wait_for_completion()
+                if len(self.wip) > 0:
+                    self._wait_for_completion()
+
+        except KeyboardInterrupt:
+            plog.info("Build interrupted by user")
+            self._cleanup()
+            return 130

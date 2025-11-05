@@ -34,12 +34,14 @@ class BuildScheduler:
             target = self.build_order[i]
 
             if target not in self.done and target not in self.wip and self.remaining_deps.get(target, 0) == 0:
-                self._launch_task(target, 1)
-                continue
-            elif target.external:
-                if len(self.wip) == 0:
-                    self._launch_task(target, self.max_jobs)
-                break
+                if target.external:
+                    if len(self.wip) == 0:
+                        self._launch_task(target, self.max_jobs)
+                    break
+                else:
+                    self._launch_task(target, 1)
+                    continue
+        
 
     def _launch_task(self, target: BuildRecipe, jobs: int) -> None:
         plog.debug(f"Started building {target.target} with {jobs} cores")

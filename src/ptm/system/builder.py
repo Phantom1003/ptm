@@ -4,7 +4,7 @@ from typing import List, Dict, Callable, Optional, Union
 
 from ..system.logger import plog
 from .scheduler import BuildScheduler
-from .recipe import BuildTarget, BuildRecipe, DependencyTree
+from .recipe import BuildTargetType, BuildTarget, BuildRecipe, DependencyTree
 
 
 class BuildSystem:
@@ -57,7 +57,7 @@ class BuildSystem:
 
         # Pass the display name to the partial function
         target_name = build_target.name
-        depends_names = [dep.name for dep in build_depends]
+        depends_names = [dep.name if dep.type == BuildTargetType.TASK else dep.uid for dep in build_depends]
         plog.debug(f"Registering target '{target_name}' with depends {depends_names} (external={external})")
 
         partial_func = functools.partial(func, target=target_name, depends=depends_names)

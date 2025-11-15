@@ -8,7 +8,7 @@ from .recipe import BuildRecipe
 
 
 def _proc_run_target(recipe: BuildRecipe, jobs_alloc: int) -> None:
-    os.setsid()
+    # os.setsid()
     recipe.build(jobs=jobs_alloc)
 
 class BuildScheduler:
@@ -106,11 +106,10 @@ class BuildScheduler:
             self.ptr += 1
 
     def _cleanup(self) -> None:
-        plog.info("Terminating all running builds...")
+        plog.info("Terminate all running builds")
         for proc, _ in self.wip.values():
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        for proc, _ in self.wip.values():
-            proc.join()
+            if proc.is_alive():
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
 
     def run(self) -> int:
         """Main scheduling loop.

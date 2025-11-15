@@ -39,6 +39,7 @@ def exec_cmd(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
         cmd,
         shell=shell,
         cwd=cwd,
+        stdin=None,
         stdout=None,
         stderr=None,
         text=True

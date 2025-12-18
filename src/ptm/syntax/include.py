@@ -11,7 +11,7 @@ from typing import Optional
 from ..system.logger import plog
 from .loader import PTMLoader
 from .param import Parameter
-from ..system.builder import task, target, targets
+from ..system.builder import task, target, targets, builder
 
 def _get_parent_parameter():
     caller_frame = inspect.stack()
@@ -49,6 +49,8 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     if not os.path.exists(file_real_path):
         raise FileNotFoundError(f"File does not exist: {file_real_path}")
     
+    builder.ptm_srcs.add(file_real_path)
+
     module_name = file_real_path
     plog.info(f"Importing targets from '{file_real_path}'")
 

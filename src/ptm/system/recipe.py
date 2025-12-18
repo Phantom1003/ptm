@@ -4,7 +4,6 @@ from typing import List, Dict, Callable, Any, Union
 
 from ..system.logger import plog
 
-
 class BuildTargetType(Enum):
     FILE = "file"
     TASK = "func"
@@ -163,11 +162,19 @@ class DependencyTree:
         for child in node.children:
             self._compute_depth_map(child)
 
-    def get_build_order(self) -> List[BuildRecipe]:
+    def generate_build_order(self) -> List[BuildRecipe]:
         build_order: List[BuildRecipe] = []
         for depth in sorted(self.node_depth_map.keys(), reverse=True):
             build_order.extend(self.node_depth_map[depth])
         return build_order
+    
+    def generate_dependency_source(self) -> set:
+        dep_src = set()
+        for node in self.node_lut.values():
+            for dep in node.depends:
+                if dep.type == BuildTargetType.FILE and os.path.exists(dep.uid):
+                    dep_src.add(dep.uid)
+        return dep_src
     
     def __repr__(self) -> str:
         lines = [f"BuildTree (max_depth={self.max_depth})"]

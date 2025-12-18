@@ -17,7 +17,6 @@ class BuildScheduler:
         self.max_jobs = max_jobs
         self.cap = max_jobs
         self.build_order = build_order
-
         self.remaining_deps: Dict[BuildRecipe, int] = {}
         for target in self.build_order:
             self.remaining_deps[target] = len(target.children)
@@ -106,23 +105,18 @@ class BuildScheduler:
             self.ptr += 1
 
     def _cleanup(self) -> None:
-        plog.info("Terminate all running builds")
         for proc, _ in self.wip.values():
             if proc.is_alive():
                 os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
 
     def run(self) -> int:
-        """Main scheduling loop.
-        
-        Returns:
-            Exit code: 0 for success, non-zero for failure
-        """
         try:
             while True:
                 if self.error:
                     self._cleanup()
                     return self.error
-                
+
+                # TODO: better check logic
                 if len(self.done) == len(self.build_order):
                     plog.debug("All targets completed")
                     return 0

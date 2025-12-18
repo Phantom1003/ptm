@@ -16,6 +16,7 @@ class BuildSystem:
             
         self.recipe_lut: Dict[BuildTarget, BuildRecipe] = {}
         self.default_max_jobs: int = os.cpu_count() or 1
+        self.ptm_srcs: set[str] = set()
 
     @classmethod
     def get_instance(cls) -> 'BuildSystem':
@@ -94,25 +95,14 @@ class BuildSystem:
             return self._register_target(func, func, self._get_depends(func, depends), external)
         return decorator
 
-    def build(self, target: Union[str, Callable, BuildTarget], max_jobs: Optional[int] = None) -> int:
-        """Build the target and its dependencies.
-        
-        Args:
-            target: Target name or callable to build
-            max_jobs: Maximum number of parallel jobs
-        
-        Returns:
-            Exit code: 0 for success, non-zero for failure
-        """
-        if max_jobs is not None and max_jobs < 1:
-            raise ValueError("Job count must be at least 1!")
-        max_jobs = self.default_max_jobs if max_jobs is None else max_jobs
-
+    def generate_dependency_tree(self, target: Union[str, Callable, BuildTarget]) -> DependencyTree:
         if not isinstance(target, BuildTarget):
             target = self._find_target(target)
+        return DependencyTree(target, self.recipe_lut)
 
-        tree = DependencyTree(target, self.recipe_lut)
-        scheduler = BuildScheduler(tree.get_build_order(), max_jobs)
+    def build(self, target: Union[str, Callable, BuildTarget], max_jobs: int = 1) -> int:
+        tree = self.generate_dependency_tree(target)
+        scheduler = BuildScheduler(tree.generate_build_order(), max_jobs)
         exitcode = scheduler.run()
         return exitcode
     
@@ -126,7 +116,6 @@ class BuildSystem:
         self.recipe_lut[build_target].depends.extend(build_depends)
 
     def list_targets(self) -> None:
-        """List all available targets and their descriptions."""
         plog.info("Available targets:")
         for build_target, recipe in self.recipe_lut.items():
             target_display = f" -> {str(build_target)}"
@@ -135,6 +124,7 @@ class BuildSystem:
 
     def clean(self) -> None:
         self.recipe_lut.clear()
+        self.ptm_srcs.clear()
 
 # Create global instance and decorator
 builder = BuildSystem.get_instance()

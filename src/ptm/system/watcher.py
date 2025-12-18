@@ -1,11 +1,12 @@
 import os
 import sys
+import time
+import fcntl
 import ctypes
 import select
-import threading
 from abc import ABC, abstractmethod
-from .logger import plog
 
+from .logger import plog
 
 class BaseWatcher(ABC):   
     @abstractmethod
@@ -30,7 +31,10 @@ class InotifyWatcher(BaseWatcher):
         fd = self.libc.inotify_init()
         if fd < 0:
             raise RuntimeError("Failed to initialize inotify")
+
         self._fd = fd
+        flags = fcntl.fcntl(self._fd, fcntl.F_GETFL)
+        fcntl.fcntl(self._fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
     def add_watch(self, files: set[str]) -> bool:
         IN_MODIFY = 0x00000002
@@ -45,12 +49,17 @@ class InotifyWatcher(BaseWatcher):
                 self._wd_map[wd] = f
             else:
                 plog.warning(f"Failed to add inotify watch for {f}")
-    
-    def wait_change(self, timeout: float | None = None) -> bool:
-        ready = select.select([self._fd], [], [], timeout)
-        if ready[0]:
-            os.read(self._fd, 4096)
-            return True
+
+    def wait_change(self, timeout: float) -> bool:
+        ready, _, _ = select.select([self._fd], [], [], timeout)
+        if ready:
+            time.sleep(1)
+            try:
+                while True:
+                    if not os.read(self._fd, 4096):
+                        break
+            except BlockingIOError:
+                pass
         return False
     
     def cleanup(self):

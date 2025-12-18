@@ -79,6 +79,9 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     module.target = target
     module.targets = targets
 
+    module.__dict__['CURDIR'] = work_dir
+    module.__dict__['CURFILE'] = file_real_path
+
     if param is None:
         param = _get_parent_parameter()
     module.param = param

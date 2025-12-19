@@ -18,20 +18,18 @@ All target arguments are available to the build script via Parameter.
 
 import os
 import sys
-import time
 
 from .system.logger import plog
 from .syntax.include import include
 from .system.builder import builder
 from .syntax.param import Parameter
-from .system.watcher import FileSystemWatcher
-from .system.recipe import BuildTargetType, DependencyTree
 from .system.scheduler import BuildScheduler
+from .system.watcher import FileSystemWatcher
 
 PTM_ARGS = [
     {'flags': ['-h', '--help'], 'key': 'help', 'action': 'store_true'},
     {'flags': ['-w', '--daemon'], 'key': 'daemon', 'action': 'store_true'},
-    {'flags': ['-j', '--jobs'], 'key': 'jobs', 'action': 'store', 'type': int},
+    {'flags': ['-j', '--jobs'], 'key': 'jobs', 'action': 'store', 'type': int, 'default': os.cpu_count()},
 ]
 
 def parse_ptm_args(args):
@@ -43,6 +41,10 @@ def parse_ptm_args(args):
     for arg_def in PTM_ARGS:
         for flag in arg_def['flags']:
             flag_map[flag] = arg_def
+        if 'default' in arg_def:
+            ptm_args[arg_def['key']] = arg_def['default']
+        elif arg_def['action'] == 'store_true':
+            ptm_args[arg_def['key']] = False
 
     i = 0
     while i < len(args):
@@ -104,14 +106,13 @@ def main():
     if target_name is None or target_name == "--":
         target_name = "all"
     
-    if ptm_args.get('help', False):
+    if ptm_args.get('help'):
         print(__doc__)
         sys.exit(0)
 
-    daemon_mode = ptm_args.get('daemon', False)
-    max_jobs = ptm_args.get('jobs', os.cpu_count())
+    daemon_mode = ptm_args.get('daemon')
+    max_jobs = ptm_args.get('jobs')
 
-    print("Daemon mode:", daemon_mode)
     if max_jobs < 1:
         raise ValueError("Number of jobs must be at least 1")
 
@@ -127,14 +128,14 @@ def main():
     if daemon_mode:
         plog.info("Daemon mode enabled")
 
-    _ = include(build_file, param)
-    tree = builder.generate_dependency_tree(target_name)
-    
-    if daemon_mode:
-        watcher = FileSystemWatcher(tree.generate_dependency_source() | builder.ptm_srcs)
-
     try:
         while True:
+            _ = include(build_file, param)
+            tree = builder.generate_dependency_tree(target_name)
+            
+            if daemon_mode:
+                watcher = FileSystemWatcher(tree.generate_dependency_source() | builder.ptm_srcs)
+
             scheduler = BuildScheduler(tree.generate_build_order(), max_jobs)
             exitcode = scheduler.run()
 

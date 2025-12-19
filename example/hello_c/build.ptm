@@ -3,6 +3,8 @@ import os
 TOP = os.path.dirname(os.path.abspath(__file__))
 BUILD = TOP / 'build'
 
+os.makedirs(BUILD, exist_ok=True)
+
 hello_hdr = BUILD / 'hello.h'
 hello_c = BUILD / 'hello.c'
 hello_elf = BUILD / 'hello'

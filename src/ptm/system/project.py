@@ -1,5 +1,6 @@
 import os, sys
-from enum import Enum, auto
+import shutil
+import urllib.request
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -10,24 +11,15 @@ class BaseRepository(ABC):
         self.name = name
         self.path = Path(path)
 
-    @property
-    @abstractmethod
-    def version(self):
-        pass
-
-    def extern_cmd(self, cmd: str, wkdir: Path | None = None, ignore_error = True):
+    def extern_cmd(self, cmd: str, wkdir: Path | None = None):
         if wkdir:
             old_cwd = os.getcwd()
             os.chdir(wkdir)
-
+        plog.info(f"[{self.name}]:", cmd)
         ret = os.system(cmd)
-
         if wkdir:
             os.chdir(old_cwd)
-
-        if not ignore_error and ret != 0:
-            plog.error(f"Repo {self.name}: '{cmd}' failed")
-            raise RuntimeError(f"External command failed with exit code {ret}")
+        return ret
     
     @abstractmethod
     def init(self):
@@ -41,47 +33,67 @@ class BaseRepository(ABC):
     def clean(self):
         pass
 
-class GitRepositoryVersion:
-    VALID_TYPES = {"tag", "branch", "commit"}
-    
-    def __init__(self, name:str, type: str, **args):
-        self.type = type.lower()
-        if self.type not in self.VALID_TYPES:
-            raise ValueError(f"Unknown version type '{type}' for {name}")
-        if self.type not in args:
-            raise ValueError(f"Missing required information '{self.type}' for version type '{name}'")
-        for attr_name in self.VALID_TYPES:
-            if attr_name in args:
-                setattr(self, attr_name, args[attr_name])
-
-    @property
-    def meta(self):
-        return getattr(self, self.type)
-
-class GitRepository(BaseRepository):
-    def __init__(self, name: str, upstream: str, path: str, version: GitRepositoryVersion):
+class LocalRepository(BaseRepository):
+    def __init__(self, name: str, path: Path):
         super().__init__(name, path)
-        self.upstream = upstream
-        self._version = version
 
-    @property
-    def version(self):
-        return self._version
+    def __check_local_repo(self):
+        if not os.path.exists(self.path):
+            raise RuntimeError(f"Local repository path '{self.path}' does not exist")
 
-    def __git_init(self):
-        self.extern_cmd(f"git init {self.path}")
-        self.extern_cmd(f"git remote add ptm_repo {self.upstream}", wkdir=self.path)
+    def init(self):
+        self.__check_local_repo()
 
-    def __git_fetch(self):
-        self.extern_cmd(f"git fetch --depth=1 ptm_repo {self.version.meta}", wkdir=self.path)
+    def sync(self):
+        self.__check_local_repo()
 
-    def __git_checkout(self):
-        self.extern_cmd(f"git checkout --force {self.version.meta}", wkdir=self.path)
+    def clean(self):
+        plog.info(f"Skip clean operation for local repository '{self.name}'")
+
+class ArchiveRepository(BaseRepository):
+    def __init__(self, name: str, path: Path, url: str):
+        super().__init__(name, path)
+        self.url = url
 
     def init(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path, exist_ok=True)
-        self.__git_init()
+        archive_name = os.path.basename(self.url)
+        archive_path = self.path / archive_name
+        plog.info(f"[{self.name}]: download {self.url} to {archive_path}")
+        urllib.request.urlretrieve(self.url, archive_path)
+        plog.info(f"[{self.name}]: unpack {archive_path} to {self.path}")
+        shutil.unpack_archive(str(archive_path), extract_dir=str(self.path))
+
+    def sync(self):
+        plog.info(f"Skip sync operation for compressed archive '{self.name}'")
+
+    def clean(self):
+        if os.path.exists(self.path):
+            os.rmdir(self.path, recursive=True, ignore_errors=True)
+
+class GitRepository(BaseRepository):
+    def __init__(self, name: str, path: Path, url: str, type: str, meta: str):
+        super().__init__(name, path)
+        self.url = url
+        self.type = type
+        self.meta = meta
+
+    def __git_init(self):
+        self.extern_cmd(f"git init {self.path}")
+        self.extern_cmd(f"git remote add ptm_repo {self.url}", wkdir=self.path)
+
+    def __git_fetch(self):
+        self.extern_cmd(f"git fetch --depth=1 ptm_repo {self.meta}", wkdir=self.path)
+
+    def __git_checkout(self):
+        self.extern_cmd(f"git checkout --force {self.meta}", wkdir=self.path)
+
+    def init(self):
+        if not os.path.exists(self.path):
+            os.makedirs(self.path, exist_ok=True)
+        if not os.path.exists(self.path / ".git"):
+            self.__git_init()
         self.__git_fetch()
         self.__git_checkout()
 
@@ -93,14 +105,96 @@ class GitRepository(BaseRepository):
         if os.path.exists(self.path):
             os.rmdir(self.path, recursive=True, ignore_errors=True)
 
-class Project:
-    def __init__(self, project_root: str, repos: list[BaseRepository]):
-        self.path = Path(project_root)
-        self.repos = repos
+# {
+#     name: starship
+#     version: 1.0
+#     repository: [
+#         {
+#             name: starship
+#             type: git
+#             commit: "a1b2c3d4e5f6g7h8i9j0"
+#             url: "https://github.com/example/starship.git"
+#             path: repo/starship
+#         },
+#         {
+#             name: rss
+#             type: local
+#             path: /opt/rss
+#         }
+#         {
+#             name: toolchain
+#             type: archive
+#             url: "https://example.com/toolchain.zip"
+#             path: toolchain
+#         }
+#     ]
+# }
 
+class Project:
+    def __init__(self, project_root: str, raw: dict):
+        self.project_root = Path(project_root)
+        self.name = raw.get("name", None)
+        self.version = raw.get("version", None)
+
+        self.repos = []
         self.repo_map = {}
-        for repo in repos:
-            self.repo_map[repo.name] = repo
+        
+        for repo in raw.get("repository", []):
+            repo_type = repo.get("type", "local").lower()
+            if repo_type not in {"local", "git", "archive"}:
+                raise ValueError(f"Unknown repository type '{repo_type}'")
+            repo_handler = getattr(self, f"_add_{repo_type}_repo")
+            repo_handler(repo)
+
+    def __gen_path(self, path: str | None) -> Path:
+        if path is None:
+            raise ValueError(f"Project {self.name} has a repository with no path specified")
+        if not os.path.isabs(path):
+            path = self.project_root / path
+        return path
+
+    def _add_local_repo(self, repo_data: dict):
+        path = self.__gen_path(repo_data.get("path", None))
+        name = repo_data.get("name", str(path))
+
+        repo = LocalRepository(name, path)
+        self.repos.append(repo)
+        self.repo_map[name] = repo
+
+    def _add_archive_repo(self, repo_data: dict):
+        path = self.__gen_path(repo_data.get("path", None))
+        name = repo_data.get("name", str(path))
+        url = repo_data.get("url", None)
+
+        if not url:
+            raise ValueError(f"ArchiveRepository {name} has no url")
+
+        repo = ArchiveRepository(name, path, url)
+        self.repos.append(repo)
+        self.repo_map[name] = repo
+    
+    def _add_git_repo(self, repo_data: dict):
+        path = self.__gen_path(repo_data.get("path", None))
+        name = repo_data.get("name", str(path))
+        url = repo_data.get("url", None)
+
+        if not url:
+            raise ValueError(f"GitRepository {name} has no url")
+        if "commit" in repo_data:
+            version_type = "commit"
+            version_meta = repo_data["commit"]
+        elif "tag" in repo_data:
+            version_type = "tag"
+            version_meta = repo_data["tag"]
+        elif "branch" in repo_data:
+            version_type = "branch"
+            version_meta = repo_data["branch"]
+        else:
+            raise ValueError(f"GitRepository {name} has no valid version info")
+
+        repo = GitRepository(name, path, url, version_type, version_meta)
+        self.repos.append(repo)
+        self.repo_map[name] = repo
 
     def init(self):
         for repo in self.repos:

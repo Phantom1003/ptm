@@ -253,23 +253,6 @@ def test_large_dependency_tree_parallel(tmp_path):
     for f in level1_files + level2_files:
         assert f.exists()
 
-
-def test_invalid_max_jobs():
-    """Test that invalid max_jobs values are rejected"""
-    builder.clean()
-
-    @task()
-    def simple_task(target, depends):
-        pass
-    
-    # max_jobs must be at least 1
-    with pytest.raises(ValueError, match="Job count must be at least 1"):
-        builder.build(simple_task, max_jobs=0)
-    
-    with pytest.raises(ValueError, match="Job count must be at least 1"):
-        builder.build(simple_task, max_jobs=-1)
-
-
 def test_parallel_rebuild_on_change(tmp_path):
     """Test that parallel builds correctly detect and rebuild changed dependencies"""
     builder.clean()

@@ -1,8 +1,6 @@
-import os, sys
-import shutil
-import urllib.request
-from abc import ABC, abstractmethod
+import os
 from pathlib import Path
+from abc import ABC, abstractmethod
 
 from .logger import plog
 
@@ -11,7 +9,7 @@ class BaseRepository(ABC):
         self.name = name
         self.path = Path(path)
 
-    def extern_cmd(self, cmd: str, wkdir: Path | None = None):
+    def extern_cmd(self, cmd: str, wkdir: Path | None = None, ignore_error: bool = False) -> int:
         if wkdir:
             old_cwd = os.getcwd()
             os.chdir(wkdir)
@@ -19,11 +17,9 @@ class BaseRepository(ABC):
         ret = os.system(cmd)
         if wkdir:
             os.chdir(old_cwd)
+        if ret != 0 and not ignore_error:
+            raise RuntimeError(f"External command '{cmd}' failed with exit code {ret}")
         return ret
-    
-    @abstractmethod
-    def init(self):
-        pass    
 
     @abstractmethod
     def sync(self):
@@ -37,15 +33,9 @@ class LocalRepository(BaseRepository):
     def __init__(self, name: str, path: Path):
         super().__init__(name, path)
 
-    def __check_local_repo(self):
+    def sync(self):
         if not os.path.exists(self.path):
             raise RuntimeError(f"Local repository path '{self.path}' does not exist")
-
-    def init(self):
-        self.__check_local_repo()
-
-    def sync(self):
-        self.__check_local_repo()
 
     def clean(self):
         plog.info(f"Skip clean operation for local repository '{self.name}'")
@@ -54,23 +44,25 @@ class ArchiveRepository(BaseRepository):
     def __init__(self, name: str, path: Path, url: str):
         super().__init__(name, path)
         self.url = url
-
-    def init(self):
-        if not os.path.exists(self.path):
-            os.makedirs(self.path, exist_ok=True)
-        archive_name = os.path.basename(self.url)
-        archive_path = self.path / archive_name
-        plog.info(f"[{self.name}]: download {self.url} to {archive_path}")
-        urllib.request.urlretrieve(self.url, archive_path)
-        plog.info(f"[{self.name}]: unpack {archive_path} to {self.path}")
-        shutil.unpack_archive(str(archive_path), extract_dir=str(self.path))
+        self.archive = self.path / os.path.basename(self.url)
 
     def sync(self):
-        plog.info(f"Skip sync operation for compressed archive '{self.name}'")
+        if not os.path.exists(self.path):
+            os.makedirs(self.path, exist_ok=True)
+    
+        if not os.path.exists(self.archive):
+            ret = self.extern_cmd(f"curl -C - -o {self.archive} {self.url}", ignore_error=True)
+            if ret != 0:
+                os.remove(self.archive)
+        if str(self.archive).endswith(('.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tar.xz', '.txz', '.tar')):
+            self.extern_cmd(f"tar -xf {self.archive} -C {self.path}")
+        elif str(self.archive).endswith('.zip'):
+            self.extern_cmd(f"unzip -o {self.archive} -d {self.path}")
 
     def clean(self):
         if os.path.exists(self.path):
             os.rmdir(self.path, recursive=True, ignore_errors=True)
+            os.remove()
 
 class GitRepository(BaseRepository):
     def __init__(self, name: str, path: Path, url: str, type: str, meta: str):
@@ -89,15 +81,11 @@ class GitRepository(BaseRepository):
     def __git_checkout(self):
         self.extern_cmd(f"git checkout --force {self.meta}", wkdir=self.path)
 
-    def init(self):
+    def sync(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path, exist_ok=True)
         if not os.path.exists(self.path / ".git"):
             self.__git_init()
-        self.__git_fetch()
-        self.__git_checkout()
-
-    def sync(self):
         self.__git_fetch()
         self.__git_checkout()
 
@@ -196,10 +184,6 @@ class Project:
         self.repos.append(repo)
         self.repo_map[name] = repo
 
-    def init(self):
-        for repo in self.repos:
-            repo.init()
-
     def sync(self):
         for repo in self.repos:
             repo.sync()
@@ -207,3 +191,11 @@ class Project:
     def clean(self):
         for repo in self.repos:
             repo.clean()
+
+    def get_repo_path(self, repo_name: str) -> Path:
+        if repo_name not in self.repo_map:
+            raise KeyError(f"Repository '{repo_name}' not found in project '{self.name}'")
+        return self.repo_map[repo_name].path
+
+    def __getitem__(self, repo_name: str) -> Path:
+        return self.get_repo_path(repo_name)

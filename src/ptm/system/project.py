@@ -119,7 +119,7 @@ class GitRepository(BaseRepository):
 # }
 
 class Project:
-    def __init__(self, project_root: str, raw: dict):
+    def __init__(self, project_root: str, raw: dict, select_repos: list[str] | None = None):
         self.project_root = Path(project_root)
         self.name = raw.get("name", None)
         self.version = raw.get("version", None)
@@ -128,6 +128,8 @@ class Project:
         self.repo_map = {}
         
         for repo in raw.get("repository", []):
+            if select_repos is not None and repo.get("name", None) not in select_repos:
+                continue
             repo_type = repo.get("type", "local").lower()
             if repo_type not in {"local", "git", "archive"}:
                 raise ValueError(f"Unknown repository type '{repo_type}'")
@@ -184,12 +186,16 @@ class Project:
         self.repos.append(repo)
         self.repo_map[name] = repo
 
-    def sync(self):
+    def sync(self, select_repos: list[str] | None = None): 
         for repo in self.repos:
+            if select_repos is not None and repo.name not in select_repos:
+                continue
             repo.sync()
 
-    def clean(self):
+    def clean(self, select_repos: list[str] | None = None):
         for repo in self.repos:
+            if select_repos is not None and repo.name not in select_repos:
+                continue
             repo.clean()
 
     def get_repo_path(self, repo_name: str) -> Path:

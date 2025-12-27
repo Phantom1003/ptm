@@ -8,6 +8,9 @@ from .system.builder import builder, task, target, targets
 from .system.project import Project
 
 
+__version__ = "0.1.17"
+
+
 __all__ = [
     "task", "target", "targets", "builder",
     "Parameter",
@@ -15,6 +18,7 @@ __all__ = [
     "environ",
     "exec_cmd", "exec_cmd_stdout", "exec_cmd_stderr", "exec_cmd_stdout_stderr",
     "Project",
+    "__version__",
 ]
 
 enable_str_truediv()

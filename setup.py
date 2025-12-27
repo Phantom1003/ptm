@@ -1,8 +1,20 @@
+import re
+from pathlib import Path
 from setuptools import setup, find_packages
+
+BASE_DIR = Path(__file__).parent
+PACKAGE_INIT = BASE_DIR / "src" / "ptm" / "__init__.py"
+
+def read_version() -> str:
+    """Return the package version defined in src/ptm/__init__.py."""
+    match = re.search(r"__version__\s*=\s*['\"]([^'\"]+)['\"]", PACKAGE_INIT.read_text())
+    if not match:
+        raise RuntimeError("Unable to determine package version")
+    return match.group(1) 
 
 setup(
     name="phantom-make",
-    version="0.1.17",
+    version=read_version(), 
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=[],
@@ -14,7 +26,7 @@ setup(
     author="Phantom1003",
     author_email="phantom@zju.edu.cn",
     description="A python-based traceable make system",
-    long_description=open("README.md").read(),
+    long_description=(BASE_DIR / "README.md").read_text(),
     long_description_content_type="text/markdown",
     url="https://github.com/Phantom1003/ptm",
     classifiers=[

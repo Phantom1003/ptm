@@ -45,9 +45,7 @@ class BuildTarget:
 
 
 class BuildRecipe:
-    """Represents a build target with both recipe and tree structure information."""
-    
-    def __init__(self, recipe: Callable, target: BuildTarget, depends: List[BuildTarget], external: bool = False, depth: int = 0):
+    def __init__(self, recipe: Callable, target: BuildTarget, depends: List[BuildTarget], external: bool = False, depth: int = -1):
         self.target = target
         self.depends = depends
         self.recipe = recipe
@@ -99,34 +97,32 @@ class DependencyTree:
     def __init__(self, valid_target: BuildTarget, recipe_lut: Dict[BuildTarget, BuildRecipe]):
         self.max_depth = 0
         self.recipe_lut: Dict[BuildTarget, BuildRecipe] = recipe_lut
-        self.node_lut: Dict[BuildTarget, BuildRecipe] = {}
         self.node_depth_map: Dict[int, set[BuildRecipe]] = {}
 
         self.root = self._build_tree(valid_target, [], 0)
         self._compute_depth_map(self.root)
 
     def _build_tree(self, target: BuildTarget, history: List[BuildTarget], depth: int = 0) -> BuildRecipe | None:
-        if target not in self.recipe_lut:        
+        plog.debug(f"Building tree node for target '{target}' at depth {depth}")
+
+        if target not in self.recipe_lut:
             if target.type == BuildTargetType.FILE and os.path.exists(target.uid):
                     return None
             else:
                 raise ValueError(f"Target '{target}' not found")
-
-        plog.debug(f"Building tree node for target '{target}' at depth {depth}")
+        
+        target_recipe = self.recipe_lut[target]
 
         if depth > self.max_depth:
             self.max_depth = depth
 
-        if target in self.node_lut:
-            prv_node = self.node_lut[target]
-            if depth > prv_node.depth:
-                self._update_subtree_depth(prv_node, depth)
-            return prv_node
+        if target_recipe.depth >= 0:
+            if depth > target_recipe.depth:
+                self._update_subtree_depth(target_recipe, depth)
+            return target_recipe
 
         target_recipe = self.recipe_lut[target]
-        new_node = BuildRecipe(target_recipe.recipe, target_recipe.target, 
-                            target_recipe.depends, external=target_recipe.external, depth=depth)
-        self.node_lut[target] = new_node
+        target_recipe.depth = depth
 
         for dep in target_recipe.depends:
             if dep in history:
@@ -135,9 +131,9 @@ class DependencyTree:
 
             child_node = self._build_tree(dep, history + [target], depth + 1)
             if child_node is not None:
-                new_node.add_child(child_node)
+                target_recipe.add_child(child_node)
 
-        return new_node
+        return target_recipe
 
     def _update_subtree_depth(self, node: BuildRecipe, new_depth: int) -> None:
         plog.debug(f"Updating depth for node '{node.target}' from {node.depth} to {new_depth}")
@@ -170,7 +166,7 @@ class DependencyTree:
     
     def generate_dependency_source(self) -> set:
         dep_src = set()
-        for node in self.node_lut.values():
+        for node in self.recipe_lut.values():
             for dep in node.depends:
                 if dep.type == BuildTargetType.FILE and os.path.exists(dep.uid):
                     dep_src.add(dep.uid)

@@ -23,18 +23,6 @@ class BuildSystem:
         if cls._instance is None:
             cls._instance = BuildSystem()
         return cls._instance
-
-    def _find_target(self, look_for: str | Callable) -> Optional[BuildTarget]:
-        if callable(look_for):
-            look_for = look_for.__name__
-
-        for build_target, _ in self.recipe_lut.items():
-            if build_target.name == look_for:
-                return build_target
-            elif build_target.uid == look_for:
-                return build_target
-
-        raise ValueError(f"Target '{look_for}' not found")
     
     def _get_depends(self, target: Union[str, Callable], depends: Union[List[Union[str, Callable]], Callable]) -> List[Union[str, Callable]]:
         if callable(target):
@@ -96,8 +84,6 @@ class BuildSystem:
         return decorator
 
     def generate_dependency_tree(self, target: Union[str, Callable, BuildTarget]) -> DependencyTree:
-        if not isinstance(target, BuildTarget):
-            target = self._find_target(target)
         return DependencyTree(target, self.recipe_lut)
 
     def build(self, target: Union[str, Callable, BuildTarget], max_jobs: int = 1) -> int:

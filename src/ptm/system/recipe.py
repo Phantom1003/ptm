@@ -94,13 +94,27 @@ class BuildRecipe:
 
 
 class DependencyTree:
-    def __init__(self, valid_target: BuildTarget, recipe_lut: Dict[BuildTarget, BuildRecipe]):
+    def __init__(self, target: Union[str, Callable, BuildTarget], recipe_lut: Dict[BuildTarget, BuildRecipe]):
         self.max_depth = 0
         self.recipe_lut: Dict[BuildTarget, BuildRecipe] = recipe_lut
-        self.node_depth_map: Dict[int, set[BuildRecipe]] = {}
+        self.depth_map: Dict[int, set[BuildRecipe]] = {}
 
-        self.root = self._build_tree(valid_target, [], 0)
+        if not isinstance(target, BuildTarget):
+            target = self._find_target(target)
+        self.root = self._build_tree(target, [], 0)
         self._compute_depth_map(self.root)
+
+    def _find_target(self, look_for: str | Callable) -> BuildTarget:
+        if callable(look_for):
+            look_for = look_for.__name__
+
+        for build_target, _ in self.recipe_lut.items():
+            if build_target.name == look_for:
+                return build_target
+            elif build_target.uid == look_for:
+                return build_target
+
+        raise ValueError(f"Target '{look_for}' not found")
 
     def _build_tree(self, target: BuildTarget, history: List[BuildTarget], depth: int = 0) -> BuildRecipe | None:
         plog.debug(f"Building tree node for target '{target}' at depth {depth}")
@@ -151,17 +165,17 @@ class DependencyTree:
         if node is None:
             return
 
-        if node.depth not in self.node_depth_map:
-            self.node_depth_map[node.depth] = set()
-        self.node_depth_map[node.depth].add(node)
+        if node.depth not in self.depth_map:
+            self.depth_map[node.depth] = set()
+        self.depth_map[node.depth].add(node)
         
         for child in node.children:
             self._compute_depth_map(child)
 
     def generate_build_order(self) -> List[BuildRecipe]:
         build_order: List[BuildRecipe] = []
-        for depth in sorted(self.node_depth_map.keys(), reverse=True):
-            build_order.extend(self.node_depth_map[depth])
+        for depth in sorted(self.depth_map.keys(), reverse=True):
+            build_order.extend(self.depth_map[depth])
         return build_order
     
     def generate_dependency_source(self) -> set:
@@ -174,7 +188,7 @@ class DependencyTree:
     
     def __repr__(self) -> str:
         lines = [f"BuildTree (max_depth={self.max_depth})"]
-        for depth in sorted(self.node_depth_map.keys()):
-            nodes = self.node_depth_map[depth]
+        for depth in sorted(self.depth_map.keys()):
+            nodes = self.depth_map[depth]
             lines.append(f"  Depth {depth}: {[node.target for node in nodes]}")
         return "\n".join(lines)

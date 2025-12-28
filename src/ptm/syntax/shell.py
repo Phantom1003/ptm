@@ -19,6 +19,14 @@ def _check_return_code(returncode: int) -> None:
     if returncode != 0:
         raise RuntimeError(f"Command failed with return code {returncode}")
 
+def _format_command(cmd: str) -> str:
+    plog.debug("Receive command:", cmd)
+    cmd = " ".join(cmd.split())
+    quiet = cmd.startswith("@")
+    if not quiet:
+        plog.info(cmd)
+    return cmd.lstrip('@')
+
 def exec_cmd(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
     """
     Execute a shell command and return its exit status.
@@ -31,9 +39,7 @@ def exec_cmd(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> int:
     Returns:
         int: The exit status of the command
     """
-    plog.debug("Executing command:", cmd)
-    cmd = " ".join(cmd.split())
-    plog.info(cmd)
+    cmd = _format_command(cmd)
 
     process = subprocess.Popen(
         cmd,
@@ -62,9 +68,7 @@ def exec_cmd_stdout(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> 
     Returns:
         str: The standard output of the command
     """
-    plog.debug(cmd)
-    cmd = " ".join(cmd.split())
-    plog.info(cmd)
+    cmd = _format_command(cmd)
 
     process = subprocess.Popen(
         cmd,
@@ -92,9 +96,7 @@ def exec_cmd_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = None) -> 
     Returns:
         str: The standard error of the command
     """
-    plog.debug("Executing command:", cmd)
-    cmd = " ".join(cmd.split())
-    plog.info(cmd)
+    cmd = _format_command(cmd)
 
     process = subprocess.Popen(
         cmd,
@@ -122,9 +124,7 @@ def exec_cmd_stdout_stderr(cmd: str, shell: bool = True, cwd: Optional[str] = No
     Returns:
         str: The combined standard output and error of the command
     """
-    plog.debug("Executing command:", cmd)
-    cmd = " ".join(cmd.split())
-    plog.info(cmd)
+    cmd = _format_command(cmd)
 
     process = subprocess.Popen(
         cmd,

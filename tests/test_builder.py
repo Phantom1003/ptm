@@ -29,7 +29,7 @@ def test_basic_file_target(tmp_path):
     builder.build(str(target_file))
     
     # Modify dependency should trigger rebuild
-    time.sleep(0.1)  # Ensure different timestamp
+    os.sync()
     dep_file.write_text("new data")
     builder.build(str(target_file))
     assert target_file.read_text() == "NEW DATA"

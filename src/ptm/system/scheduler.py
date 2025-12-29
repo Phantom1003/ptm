@@ -26,6 +26,8 @@ class BuildScheduler:
         self.done: set[BuildRecipe] = set()
         self.error: Optional[int] = None
 
+        self.modifies: set[str] = set()
+
     def _select_and_launch_tasks(self) -> None:
         look_ahead_limit = min(len(self.build_order), self.ptr + 2 * self.max_jobs)
         for i in range(self.ptr, look_ahead_limit):
@@ -35,6 +37,11 @@ class BuildScheduler:
             target = self.build_order[i]
 
             if target not in self.done and target not in self.wip and self.remaining_deps.get(target, 0) == 0:
+                if not target.outdate():
+                    plog.info(f"Target '{target.target}' is up to date")
+                    self._handle_completed_task(target, 0, 0)
+                    continue
+
                 if target.external:
                     if len(self.wip) == 0:
                         self._launch_task(target, self.max_jobs)
@@ -44,61 +51,60 @@ class BuildScheduler:
                     continue
         
 
-    def _launch_task(self, target: BuildRecipe, jobs: int) -> None:
-        plog.debug(f"Started building {target.target} with {jobs} cores")
-        proc = mp.Process(target=_proc_run_target, args=(target, jobs), name=f"ptm@{self.max_jobs - self.cap}")
-        self.cap -= jobs
-        self.wip[target] = (proc, jobs)
+    def _launch_task(self, target: BuildRecipe, cores: int) -> None:
+        plog.debug(f"Build {target.target} with {cores} cores")
+        proc = mp.Process(target=_proc_run_target, args=(target, cores), name=f"ptm@{self.max_jobs - self.cap}")
+        self.cap -= cores
+        self.wip[target] = (proc, cores)
         proc.start()
+
+    def _parse_wait_status(self, status):
+        if os.WIFEXITED(status):
+            return os.WEXITSTATUS(status)
+        if os.WIFSIGNALED(status):
+            return -os.WTERMSIG(status)
+        return -1
+
+    def _handle_completed_task(self, recipe: BuildRecipe, cores: int, exitcode: int) -> None:
+        if recipe in self.wip:
+            self.wip.pop(recipe)
+            self.cap += cores
+            self.modifies.add(recipe.target.uid)
+
+        self.done.add(recipe)
+        for t in self.build_order:
+            if recipe.target in t.depends:
+                self.remaining_deps[t] -= 1
+
+        if exitcode == 0:
+            plog.debug(f"Target {recipe.target} completed successfully")
+        else:
+            plog.info(f"Target {recipe.target} failed with exit code {exitcode}")
+            self.error = exitcode
 
     def _wait_for_completion(self) -> None:
         if not self.wip:
             return
 
+        reaped_pid = None
+        reaped_exitcode = None
+
         try:
             pid, status = os.waitpid(-1, 0)
+            reaped_pid = pid
+            reaped_exitcode = self._parse_wait_status(status)
         except ChildProcessError:
-            for recipe, (proc, alloc) in list(self.wip.items()):
-                if not proc.is_alive():
-                    exitcode = proc.exitcode if proc.exitcode is not None else -1
-                    self.wip.pop(recipe)
-                    self.cap += alloc
-                    
-                    if exitcode == 0:
-                        self.done.add(recipe)
-                        plog.debug(f"Completed {recipe.target}")
-
-                        for t in self.build_order:
-                            if recipe.target in t.depends:
-                                self.remaining_deps[t] -= 1
-                    else:
-                        plog.info(f"Target {recipe.target} failed with exit code {exitcode}")
-                        self.error = exitcode
-            return
-
-        if os.WIFEXITED(status):
-            exitcode = os.WEXITSTATUS(status)
-        elif os.WIFSIGNALED(status):
-            exitcode = -os.WTERMSIG(status)
-        else:
-            exitcode = -1
+            pass
 
         for recipe, (proc, alloc) in list(self.wip.items()):
-            if proc.pid == pid:
-                self.wip.pop(recipe)
-                self.cap += alloc
-                
-                if exitcode == 0:
-                    self.done.add(recipe)
-                    plog.debug(f"Completed {recipe.target}")
+            if reaped_pid and proc.pid == reaped_pid:
+                exitcode = reaped_exitcode
+            elif not proc.is_alive():
+                exitcode = proc.exitcode if proc.exitcode is not None else -1
+            else:
+                continue
 
-                    for t in self.build_order:
-                        if recipe.target in t.depends:
-                            self.remaining_deps[t] -= 1
-                else:
-                    plog.info(f"Target {recipe.target} failed with exit code {exitcode}")
-                    self.error = exitcode
-                return
+            self._handle_completed_task(recipe, alloc, exitcode)
 
     def _advance_pointer(self) -> None:
         while self.ptr < len(self.build_order) and self.build_order[self.ptr] in self.done:
@@ -109,17 +115,17 @@ class BuildScheduler:
             if proc.is_alive():
                 os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
 
-    def run(self) -> int:
+    def run(self) -> Tuple[int, set[str]]:
         try:
             while True:
                 if self.error:
                     self._cleanup()
-                    return self.error
+                    return self.error, self.modifies
 
                 # TODO: better check logic
                 if len(self.done) == len(self.build_order):
                     plog.debug("All targets completed")
-                    return 0
+                    return 0, self.modifies
 
                 self._advance_pointer()
                 self._select_and_launch_tasks()
@@ -127,8 +133,11 @@ class BuildScheduler:
                 if len(self.wip) == 0:
                     if len(self.done) < len(self.build_order):
                         plog.error("Deadlock detected: no runnable tasks but build incomplete")
-                        return 1
-                    return 0
+                        plog.debug(f"Finished Targets: {self.done}")
+                        plog.debug(f"WIP Targets: {self.wip}")
+                        plog.debug(f"Remaining Targets: {self.remaining_deps}")
+                        return 1, self.modifies
+                    return 0, self.modifies
 
                 if len(self.wip) > 0:
                     self._wait_for_completion()
@@ -136,4 +145,4 @@ class BuildScheduler:
         except KeyboardInterrupt:
             plog.info("Build interrupted by user")
             self._cleanup()
-            return 130
+            return 130, self.modifies

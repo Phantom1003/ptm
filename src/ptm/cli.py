@@ -132,12 +132,12 @@ def main():
         while True:
             _ = include(build_file, param)
             tree = builder.generate_dependency_tree(target_name)
-            
+
             if daemon_mode:
-                watcher = FileSystemWatcher(tree.generate_dependency_source() | builder.ptm_srcs)
+                watcher = FileSystemWatcher(tree.generate_dependencies() | builder.ptm_srcs)
 
             scheduler = BuildScheduler(tree.generate_build_order(), max_jobs)
-            exitcode = scheduler.run()
+            exitcode, known_modifies = scheduler.run()
 
             if not daemon_mode:
                 sys.exit(exitcode)
@@ -146,8 +146,19 @@ def main():
                     plog.info("Build succeeded. Watching for changes...")
                 else:
                     plog.info(f"Build failed with exit code {exitcode}. Watching for changes...")
-                watcher.wait_change()
-                print("\033[2J\033[H", end="", flush=True)
+
+                while True:
+                    modifies = watcher.wait_change()
+
+                    valid_modifies = modifies - known_modifies
+                    if len(valid_modifies) > 0:
+                        print("\033[2J\033[H", end="", flush=True)
+                        plog.info("Rebuild triggered by:")
+                        for f in valid_modifies:
+                            plog.info(f"  - {f}")
+                        break
+
+                watcher.cleanup()
 
     except KeyboardInterrupt:
         sys.exit(0)

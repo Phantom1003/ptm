@@ -51,7 +51,7 @@ class BuildRecipe:
         self.recipe = recipe
         self.external = external
 
-        # Dependency Tree structure information
+        # Dependency Graph
         self.depth = depth
         self.children: List['BuildRecipe'] = []
 
@@ -61,7 +61,7 @@ class BuildRecipe:
         else:
             return 0
 
-    def _outdate(self) -> bool:        
+    def outdate(self) -> bool:        
         if self.target.type == BuildTargetType.TASK:
             return True
 
@@ -77,16 +77,13 @@ class BuildRecipe:
         return False
 
     def build(self, jobs: int = 1, **kwargs) -> Any:
-        if not self._outdate():
-            plog.info(f"Target '{self.target}' is up to date")
-        else:
+        if self.outdate():
             plog.info(f"Building target: {self.target}")
             if self.external:
                 kwargs['jobs'] = jobs
             self.recipe(**kwargs)
     
     def add_child(self, child: 'BuildRecipe') -> None:
-        """Add a child node to this node."""
         self.children.append(child)
 
     def __repr__(self) -> str:
@@ -121,7 +118,9 @@ class DependencyTree:
 
         if target not in self.recipe_lut:
             if target.type == BuildTargetType.FILE and os.path.exists(target.uid):
-                    return None
+                leaf = BuildRecipe(None, target, [], depth=depth)
+                self.recipe_lut[target] = leaf
+                return leaf
             else:
                 raise ValueError(f"Target '{target}' not found")
         
@@ -144,8 +143,7 @@ class DependencyTree:
                 continue
 
             child_node = self._build_tree(dep, history + [target], depth + 1)
-            if child_node is not None:
-                target_recipe.add_child(child_node)
+            target_recipe.add_child(child_node)
 
         return target_recipe
 
@@ -161,10 +159,7 @@ class DependencyTree:
         for child in node.children:
             self._update_subtree_depth(child, new_depth + 1)
     
-    def _compute_depth_map(self, node: BuildRecipe | None) -> None:
-        if node is None:
-            return
-
+    def _compute_depth_map(self, node: BuildRecipe) -> None:
         if node.depth not in self.depth_map:
             self.depth_map[node.depth] = set()
         self.depth_map[node.depth].add(node)
@@ -176,16 +171,17 @@ class DependencyTree:
         build_order: List[BuildRecipe] = []
         for depth in sorted(self.depth_map.keys(), reverse=True):
             build_order.extend(self.depth_map[depth])
+        plog.debug(f"Generated build order: {build_order}")
         return build_order
     
-    def generate_dependency_source(self) -> set:
+    def generate_dependencies(self) -> set:
         dep_src = set()
         for node in self.recipe_lut.values():
             for dep in node.depends:
                 if dep.type == BuildTargetType.FILE and os.path.exists(dep.uid):
                     dep_src.add(dep.uid)
         return dep_src
-    
+
     def __repr__(self) -> str:
         lines = [f"BuildTree (max_depth={self.max_depth})"]
         for depth in sorted(self.depth_map.keys()):

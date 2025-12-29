@@ -38,7 +38,8 @@ class BuildScheduler:
 
             if target not in self.done and target not in self.wip and self.remaining_deps.get(target, 0) == 0:
                 if not target.outdate():
-                    plog.info(f"Target '{target.target}' is up to date")
+                    if target.recipe:
+                        plog.info(f"Target '{target.target}' is up to date")
                     self._handle_completed_task(target, 0, 0)
                     continue
 
@@ -77,7 +78,8 @@ class BuildScheduler:
                 self.remaining_deps[t] -= 1
 
         if exitcode == 0:
-            plog.debug(f"Target {recipe.target} completed successfully")
+            if recipe.recipe:
+                plog.debug(f"Target {recipe.target} completed successfully")
         else:
             plog.info(f"Target {recipe.target} failed with exit code {exitcode}")
             self.error = exitcode
@@ -129,15 +131,6 @@ class BuildScheduler:
 
                 self._advance_pointer()
                 self._select_and_launch_tasks()
-
-                if len(self.wip) == 0:
-                    if len(self.done) < len(self.build_order):
-                        plog.error("Deadlock detected: no runnable tasks but build incomplete")
-                        plog.debug(f"Finished Targets: {self.done}")
-                        plog.debug(f"WIP Targets: {self.wip}")
-                        plog.debug(f"Remaining Targets: {self.remaining_deps}")
-                        return 1, self.modifies
-                    return 0, self.modifies
 
                 if len(self.wip) > 0:
                     self._wait_for_completion()

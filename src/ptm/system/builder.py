@@ -55,14 +55,14 @@ class BuildSystem:
         self.recipe_lut[build_target] = build_recipe
         return func
 
-    def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
+    def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = False):
         def decorator(func):
             for target in targets:
                 self._register_target(func, target, self._get_depends(target, depends), external)
             return func
         return decorator
 
-    def target(self, target: Union[str, Callable, List[str | Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
+    def target(self, target: Union[str, Callable, List[str | Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = False):
         def decorator(func):
             if isinstance(target, list):
                 first_t = target[0]
@@ -78,7 +78,7 @@ class BuildSystem:
                 return self._register_target(func, target, self._get_depends(target, depends), external)
         return decorator
 
-    def task(self, depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = None):
+    def task(self, depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = False):
         def decorator(func):
             return self._register_target(func, func, self._get_depends(func, depends), external)
         return decorator

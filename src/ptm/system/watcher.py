@@ -19,7 +19,7 @@ class BaseWatcher(ABC):
         pass
 
     @abstractmethod
-    def cleanup(self):
+    def clean(self):
         pass
 
 
@@ -151,7 +151,7 @@ class InotifyWatcher(BaseWatcher):
         
         return set(changed_files.keys())
     
-    def cleanup(self):
+    def clean(self):
         if self._fd:
             os.close(self._fd)
 
@@ -176,5 +176,5 @@ class FileSystemWatcher:
     def wait_change(self, timeout: float | None = None) -> set[str]:
         return self._watcher.wait_change(timeout)
     
-    def cleanup(self):
-        self._watcher.cleanup()
+    def clean(self):
+        self._watcher.clean()

@@ -158,7 +158,8 @@ def main():
                             plog.info(f"  - {f}")
                         break
 
-                watcher.cleanup()
+                watcher.clean()
+                builder.clean()
 
     except KeyboardInterrupt:
         sys.exit(0)

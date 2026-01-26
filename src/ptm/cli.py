@@ -16,6 +16,7 @@ The tool reads `build.ptm` from the current directory and builds the specified t
 All target arguments are available to the build script via Parameter.
 """
 
+from csv import __version__
 import os
 import sys
 
@@ -103,6 +104,8 @@ def main():
     args = sys.argv[1:]
     ptm_args, target_name, target_args = parse_ptm_args(args)
 
+    plog.info(f"welcome to phantom-make {__version__} (Python {sys.version.split()[0]})")
+
     if target_name is None or target_name == "--":
         target_name = "all"
     
@@ -123,8 +126,7 @@ def main():
         print(f"Error: build.ptm not found in current directory: {os.getcwd()}")
         sys.exit(1)
 
-    plog.info(f"Loading build file: {build_file}")
-    plog.info(f"Target: {target_name}")
+    plog.info(f"build target: {target_name}, top build file: {build_file}")
     if daemon_mode:
         plog.info("Daemon mode enabled")
 

@@ -1,5 +1,7 @@
+from .version import __version__
 from .cli import main as cli_main
 from .syntax.param import Parameter
+from .syntax.arglist import ArgList
 from .syntax.include import include
 from .syntax.environ import environ
 from .syntax.strdiv import enable_str_truediv
@@ -7,13 +9,9 @@ from .syntax.shell import exec_cmd, exec_cmd_stdout, exec_cmd_stderr, exec_cmd_s
 from .system.builder import builder, task, target, targets
 from .system.project import Project
 
-
-__version__ = "0.1.19"
-
-
 __all__ = [
     "task", "target", "targets", "builder",
-    "Parameter",
+    "Parameter", "ArgList",
     "include",
     "environ",
     "exec_cmd", "exec_cmd_stdout", "exec_cmd_stderr", "exec_cmd_stdout_stderr",

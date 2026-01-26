@@ -12,6 +12,7 @@ from ..system.logger import plog
 from .loader import PTMLoader
 from .param import Parameter
 from ..system.builder import task, target, targets, builder
+from .arglist import ArgList
 
 def _get_parent_parameter():
     caller_frame = inspect.stack()
@@ -78,6 +79,7 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     module.task = task
     module.target = target
     module.targets = targets
+    module.ArgList = ArgList
 
     module.__dict__['CURDIR'] = work_dir
     module.__dict__['CURFILE'] = file_real_path

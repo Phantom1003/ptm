@@ -64,15 +64,6 @@ PTM provides powerful syntax sugar to make build scripts more concise and readab
    path = f"Current path: {${PATH}}"
    ```
 
-3. **String Division for Paths**
-   ```python
-   # Traditional Python
-   os.path.join("src", "main", "file.c")
-   
-   # PTM Syntax Sugar
-   "src" / "main" / "file.c"
-   ```
-
 ### Basic Usage
 
 PTM provides a Python-based interface for defining build rules and dependencies. Here's a basic example:

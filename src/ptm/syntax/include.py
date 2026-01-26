@@ -7,6 +7,7 @@ import sys
 import inspect
 from importlib.util import spec_from_file_location, module_from_spec
 from typing import Optional
+from pathlib import Path
 
 from ..system.logger import plog
 from .loader import PTMLoader
@@ -81,8 +82,8 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     module.targets = targets
     module.ArgList = ArgList
 
-    module.__dict__['CURDIR'] = work_dir
-    module.__dict__['CURFILE'] = file_real_path
+    module.__dict__['CURDIR'] = Path(work_dir)
+    module.__dict__['CURFILE'] = Path(file_real_path)
 
     if param is None:
         param = _get_parent_parameter()

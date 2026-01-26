@@ -3,11 +3,10 @@ from pathlib import Path
 from setuptools import setup, find_packages
 
 BASE_DIR = Path(__file__).parent
-PACKAGE_INIT = BASE_DIR / "src" / "ptm" / "__init__.py"
+PACKAGE_VERSION = BASE_DIR / "src" / "ptm" / "version.py"
 
 def read_version() -> str:
-    """Return the package version defined in src/ptm/__init__.py."""
-    match = re.search(r"__version__\s*=\s*['\"]([^'\"]+)['\"]", PACKAGE_INIT.read_text())
+    match = re.search(r"__version__\s*=\s*['\"]([^'\"]+)['\"]", PACKAGE_VERSION.read_text())
     if not match:
         raise RuntimeError("Unable to determine package version")
     return match.group(1) 

@@ -16,7 +16,6 @@ The tool reads `build.ptm` from the current directory and builds the specified t
 All target arguments are available to the build script via Parameter.
 """
 
-from csv import __version__
 import os
 import sys
 
@@ -26,6 +25,7 @@ from .system.builder import builder
 from .syntax.param import Parameter
 from .system.scheduler import BuildScheduler
 from .system.watcher import FileSystemWatcher
+from .version import __version__
 
 PTM_ARGS = [
     {'flags': ['-h', '--help'], 'key': 'help', 'action': 'store_true'},
@@ -104,7 +104,7 @@ def main():
     args = sys.argv[1:]
     ptm_args, target_name, target_args = parse_ptm_args(args)
 
-    plog.info(f"welcome to phantom-make {__version__} (Python {sys.version.split()[0]})")
+    plog.info(f"welcome to phantom-make {__version__}, Python {sys.version}")
 
     if target_name is None or target_name == "--":
         target_name = "all"

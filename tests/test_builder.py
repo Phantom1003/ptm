@@ -1,7 +1,7 @@
 import os
 import time
 import pytest
-from ptm.system.builder import builder, target, targets, task
+from ptm.system.builder import builder, target, template, task
 
 def test_basic_file_target(tmp_path):
     """Test basic file target with dependencies"""
@@ -44,7 +44,7 @@ def test_multiple_targets(tmp_path):
     
     dep_file.write_text("input data")
     
-    @targets([str(target1), str(target2)], [str(dep_file)])
+    @template([str(target1), str(target2)], [str(dep_file)])
     def build_outputs(target, depends):
         with open(depends[0], 'r') as f:
             data = f.read()

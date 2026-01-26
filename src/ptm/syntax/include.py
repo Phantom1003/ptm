@@ -12,7 +12,7 @@ from pathlib import Path
 from ..system.logger import plog
 from .loader import PTMLoader
 from .param import Parameter
-from ..system.builder import task, target, targets, builder
+from ..system.builder import task, target, template, builder
 from .arglist import ArgList
 
 def _get_parent_parameter():
@@ -79,7 +79,7 @@ def include(file_path: str, param: Optional[Parameter] = None) -> str:
     module.include = include
     module.task = task
     module.target = target
-    module.targets = targets
+    module.template = template
     module.ArgList = ArgList
 
     module.__dict__['CURDIR'] = Path(work_dir)

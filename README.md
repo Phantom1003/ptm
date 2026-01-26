@@ -80,11 +80,11 @@ PTM provides a Python-based interface for defining build rules and dependencies.
            f.write(data.upper())
    ```
 
-2. **Multiple Targets**
+2. **Template Targets**
    ```python
    from ptm import targets
    
-   @targets(["output1.txt", "output2.txt"], ["input.txt"])
+   @template(["output1.txt", "output2.txt"], ["input.txt"])
    def build_outputs(target, deps):
        with open(deps[0], 'r') as f:
            data = f.read()

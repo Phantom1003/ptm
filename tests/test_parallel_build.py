@@ -2,7 +2,7 @@ import os
 import time
 import pytest
 from pathlib import Path
-from ptm.system.builder import builder, target, targets, task
+from ptm.system.builder import builder, target, template, task
 
 
 def test_parallel_independent_targets(tmp_path):

@@ -55,7 +55,7 @@ class BuildSystem:
         self.recipe_lut[build_target] = build_recipe
         return func
 
-    def targets(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = False):
+    def template(self, targets: List[Union[str, Callable]], depends: Union[List[Union[str, Callable]], Callable] = [], external: bool = False):
         def decorator(func):
             for target in targets:
                 self._register_target(func, target, self._get_depends(target, depends), external)
@@ -116,4 +116,4 @@ class BuildSystem:
 builder = BuildSystem.get_instance()
 task = builder.task
 target = builder.target
-targets = builder.targets
+template = builder.template

@@ -1,9 +1,9 @@
-from .builder import builder, task, target, targets
+from .builder import builder, task, target, template
 from .recipe import BuildTarget, BuildRecipe
 
 
 __all__ = [
     "builder",
-    "task", "target", "targets",
+    "task", "target", "template",
     "BuildTarget", "BuildRecipe",
 ]
